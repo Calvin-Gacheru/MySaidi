@@ -1,0 +1,23 @@
+# Python
+.python-version
+__pycache__/
+*.pyc
+*.pyo
+.venv/
+
+# Dependencies
+pyproject.toml
+uv.lock
+
+# Secrets — never commit these
+.env
+*.env
+!.env.example
+
+# Editor / OS
+.DS_Store
+.idea/
+.vscode/
+*.swp
+
+
