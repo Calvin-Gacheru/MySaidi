@@ -16,6 +16,71 @@ let chatHistory  = [];           // [{ role: 'user'|'assistant', content }]
 let isSending    = false;        // guard: prevent double-sends
 let calendarDate = new Date();   // month shown in calendar view
 
+
+/* ── DATA SHAPE HELPERS ─────────────────────────────────────── */
+function normalizeTaskRecord(task) {
+  if (typeof task === 'string') {
+    const title = task.trim();
+    if (!title) return null;
+    return {
+      id: crypto.randomUUID(),
+      title,
+      text: title,
+      start_time: null,
+      end_time: null,
+      is_flexible: true,
+      done: false,
+      createdAt: Date.now(),
+    };
+  }
+
+  if (!task || typeof task !== 'object') return null;
+
+  const title = typeof task.title === 'string' && task.title.trim()
+    ? task.title.trim()
+    : (typeof task.text === 'string' ? task.text.trim() : '');
+
+  if (!title) return null;
+
+  const startTime = typeof task.start_time === 'string' && task.start_time.trim()
+    ? task.start_time.trim()
+    : null;
+  const endTime = typeof task.end_time === 'string' && task.end_time.trim()
+    ? task.end_time.trim()
+    : null;
+
+  return {
+    id: typeof task.id === 'string' && task.id.trim() ? task.id.trim() : crypto.randomUUID(),
+    title,
+    text: title,
+    start_time: startTime,
+    end_time: endTime,
+    is_flexible: typeof task.is_flexible === 'boolean' ? task.is_flexible : !(startTime || endTime),
+    done: Boolean(task.done),
+    createdAt: typeof task.createdAt === 'number' ? task.createdAt : Date.now(),
+  };
+}
+
+function normalizeTaskList(rawTasks) {
+  if (!Array.isArray(rawTasks)) return [];
+  return rawTasks
+    .map(normalizeTaskRecord)
+    .filter(Boolean);
+}
+
+function toBackendEvent(task) {
+  const normalized = normalizeTaskRecord(task);
+  if (!normalized || normalized.done) return null;
+
+  return {
+    id: normalized.id,
+    title: normalized.title,
+    start_time: normalized.start_time,
+    end_time: normalized.end_time,
+    is_flexible: normalized.is_flexible,
+  };
+}
+
 /* ── DOM REFS ────────────────────────────────────────────────── */
 // Layout
 const sidebar         = document.getElementById('sidebar');
@@ -135,7 +200,36 @@ function renderCalendar() {
 
   for (let d = 1; d <= daysInMonth; d++) {
     const isToday = d === today.getDate() && month === today.getMonth() && year === today.getFullYear();
-    html += `<div class="cal-day${isToday ? ' today' : ''}">${d}</div>`;
+
+    // Find scheduled events for this day.
+    const dayEvents = tasks.filter(t => {
+      if (t.done || !t.start_time) return false;
+      const taskDate = new Date(t.start_time);
+      if (Number.isNaN(taskDate.getTime())) return false;
+      return taskDate.getDate() === d && taskDate.getMonth() === month && taskDate.getFullYear() === year;
+    });
+
+    // Render up to two event labels in each date cell.
+    const visibleEvents = dayEvents.slice(0, 2);
+    const hiddenCount = Math.max(0, dayEvents.length - visibleEvents.length);
+
+    const eventsHtml = visibleEvents
+      .map(t => {
+        const title = t.title || t.text || 'Untitled event';
+        return `<div style="font-size: 10px; color: var(--clr-green); overflow: hidden; text-overflow: ellipsis; white-space: nowrap;">• ${escapeHtml(title)}</div>`;
+      })
+      .join('');
+
+    const moreHtml = hiddenCount > 0
+      ? `<div style="font-size: 10px; color: var(--clr-text-muted);">+${hiddenCount} more</div>`
+      : '';
+
+    html += `
+    <div class="cal-day${isToday ? ' today' : ''}" style="flex-direction: column; align-items: flex-start; padding: 4px;">
+      <span>${d}</span>
+      <div style="width: 100%; margin-top: 4px;">${eventsHtml}${moreHtml}</div>
+    </div>
+    `;
   }
 
   const totalCells = Math.ceil((startDow + daysInMonth) / 7) * 7;
@@ -231,7 +325,7 @@ function closeChatDrawer() {
 function loadTasks() {
   try {
     const raw = localStorage.getItem(STORAGE_KEY);
-    tasks = raw ? JSON.parse(raw) : [];
+    tasks = normalizeTaskList(raw ? JSON.parse(raw) : []);
   } catch {
     tasks = [];
   }
@@ -247,15 +341,25 @@ function addTask() {
   const text = taskInput.value.trim();
   if (!text) return;
 
-  tasks.unshift({            // newest at top
-    id:        crypto.randomUUID(),
-    text,
-    done:      false,
+  const newTask = normalizeTaskRecord({
+    id: crypto.randomUUID(),
+    title: text,
+    done: false,
+    start_time: null,
+    end_time: null,
+    is_flexible: true,
     createdAt: Date.now(),
   });
 
+  if (!newTask) return;
+
+  tasks.unshift(newTask); // newest at top
+
   saveTasks();
   renderTasks();
+  if (document.getElementById('view-calendar').classList.contains('active')) {
+    renderCalendar();
+  }
   taskInput.value = '';
   taskInput.focus();
 }
@@ -267,6 +371,9 @@ function toggleTask(id) {
     task.done = !task.done;
     saveTasks();
     renderTasks();
+    if (document.getElementById('view-calendar').classList.contains('active')) {
+      renderCalendar();
+    }
   }
 }
 
@@ -275,6 +382,9 @@ function deleteTask(id) {
   tasks = tasks.filter(t => t.id !== id);
   saveTasks();
   renderTasks();
+  if (document.getElementById('view-calendar').classList.contains('active')) {
+    renderCalendar();
+  }
 }
 
 /** Rebuild the task list DOM from current state + filter */
@@ -293,23 +403,45 @@ function renderTasks() {
     li.className   = `task-item${task.done ? ' done' : ''}`;
     li.dataset.id  = task.id;
 
+
+
+    // li.innerHTML = `
+    //   <button
+    //     class="task-check${task.done ? ' checked' : ''}"
+    //     aria-label="${task.done ? 'Mark incomplete' : 'Mark complete'}"
+    //     aria-pressed="${task.done}"
+    //   >${task.done ? '✓' : ''}</button>
+
+    //   <span class="task-text">${escapeHtml(task.text)}</span>
+
+    //   <button class="task-delete" aria-label="Delete task">
+    //     <svg width="14" height="14" viewBox="0 0 24 24" fill="none"
+    //          stroke="currentColor" stroke-width="2.5" stroke-linecap="round">
+    //       <line x1="18" y1="6"  x2="6"  y2="18"></line>
+    //       <line x1="6"  y1="6"  x2="18" y2="18"></line>
+    //     </svg>
+    //   </button>
+    // `;
+    const displayTitle = task.title || task.text || 'Untitled event';
+    const taskStart = task.start_time ? new Date(task.start_time) : null;
+    const hasValidStart = taskStart && !Number.isNaN(taskStart.getTime());
+    const timeString = hasValidStart
+      ? taskStart.toLocaleString('en-KE', { weekday: 'short', hour: 'numeric', minute: '2-digit' })
+      : 'Flexible';
+
     li.innerHTML = `
       <button
         class="task-check${task.done ? ' checked' : ''}"
         aria-label="${task.done ? 'Mark incomplete' : 'Mark complete'}"
         aria-pressed="${task.done}"
       >${task.done ? '✓' : ''}</button>
-
-      <span class="task-text">${escapeHtml(task.text)}</span>
-
-      <button class="task-delete" aria-label="Delete task">
-        <svg width="14" height="14" viewBox="0 0 24 24" fill="none"
-             stroke="currentColor" stroke-width="2.5" stroke-linecap="round">
-          <line x1="18" y1="6"  x2="6"  y2="18"></line>
-          <line x1="6"  y1="6"  x2="18" y2="18"></line>
-        </svg>
-      </button>
+      <div style="flex: 1; min-width: 0;">
+        <div class="task-text">${escapeHtml(displayTitle)}</div>
+        <div style="font-size: 0.75rem; color: var(--clr-green);">${timeString}</div>
+      </div>
+      <button class="task-delete" aria-label="Delete task">✕</button>
     `;
+
 
     li.querySelector('.task-check').addEventListener('click',  () => toggleTask(task.id));
     li.querySelector('.task-delete').addEventListener('click', () => deleteTask(task.id));
@@ -432,11 +564,26 @@ function appendLogs(actions) {
 /** Format one human-readable log line for a tool action. */
 function formatActionLogLine(action) {
   const actionType = typeof action?.type === 'string' ? action.type : 'unknown_action';
-  const taskTextRaw = action?.payload?.task_text;
-  const taskText = typeof taskTextRaw === 'string' ? taskTextRaw.trim() : '';
+  const payload = action?.payload ?? {};
 
-  if (taskText) {
-    return `Saidi executed ${actionType}: '${taskText}'`;
+  const eventTitleRaw = payload?.title;
+  const eventTitle = typeof eventTitleRaw === 'string' ? eventTitleRaw.trim() : '';
+  const taskTextRaw = payload?.task_text;
+  const taskText = typeof taskTextRaw === 'string' ? taskTextRaw.trim() : '';
+  const eventIdRaw = payload?.id;
+  const eventId = typeof eventIdRaw === 'string' ? eventIdRaw.trim() : '';
+  const refText = eventTitle || taskText;
+
+  if (refText && eventId) {
+    return `Saidi executed ${actionType}: '${refText}' (id=${eventId})`;
+  }
+
+  if (refText) {
+    return `Saidi executed ${actionType}: '${refText}'`;
+  }
+
+  if (eventId) {
+    return `Saidi executed ${actionType} for id=${eventId}.`;
   }
 
   return `Saidi executed ${actionType}.`;
@@ -470,6 +617,9 @@ async function sendMessage(text) {
 
   // Show "Saidi is thinking..." with animated dots
   const { panelEl: thinkPanel, drawerEl: thinkDrawer } = appendMessage('thinking', '');
+  const activeTasksPayload = tasks
+    .map(toBackendEvent)
+    .filter(Boolean);
 
   try {
     const res = await fetch(API_CHAT, {
@@ -478,7 +628,7 @@ async function sendMessage(text) {
       body:    JSON.stringify({
         message:      text,
         history:      chatHistory.slice(-10),
-        active_tasks: tasks.filter(t => !t.done).map(t => t.text),
+        active_tasks: activeTasksPayload,
       }),
     });
 
@@ -504,14 +654,33 @@ async function sendMessage(text) {
     appendMessage('saidi', reply);
     chatHistory.push({ role: 'assistant', content: reply });
 
-    if (data.actions && data.actions.length > 0) {
-      data.actions.forEach(action => {
-        if (action.type === 'add_task') {
-          createTaskProgrammatically(action.payload.task_text);
-        } else if (action.type === 'remove_task') {
-          removeTaskProgrammatically(action.payload.task_text);
-        }
-      });
+    // if (data.actions && data.actions.length > 0) {
+    //   data.actions.forEach(action => {
+    //     if (action.type === 'add_task') {
+    //       createTaskProgrammatically(action.payload.task_text);
+    //     } else if (action.type === 'remove_task') {
+    //       removeTaskProgrammatically(action.payload.task_text);
+    //     }
+    //   });
+    // }
+    // Overwrite frontend state with the backend's exact calendar state
+    if (Array.isArray(data.updated_tasks)) {
+      const doneTasks = tasks
+        .filter(t => t.done)
+        .map(normalizeTaskRecord)
+        .filter(Boolean);
+
+      const syncedActive = normalizeTaskList(data.updated_tasks).map(t => ({ ...t, done: false }));
+      const activeIds = new Set(syncedActive.map(t => t.id));
+      const preservedDone = doneTasks.filter(t => !activeIds.has(t.id));
+
+      tasks = [...syncedActive, ...preservedDone];
+
+      saveTasks();
+      renderTasks();
+      if (document.getElementById('view-calendar').classList.contains('active')) {
+        renderCalendar();
+      }
     }
 
   } catch (err) {
@@ -710,12 +879,19 @@ function bindEvents() {
 
 /** Programmatically add a task from the AI */
 function createTaskProgrammatically(text) {
-  tasks.unshift({
+  const created = normalizeTaskRecord({
     id: crypto.randomUUID(),
-    text,
+    title: text,
     done: false,
+    start_time: null,
+    end_time: null,
+    is_flexible: true,
     createdAt: Date.now(),
   });
+
+  if (!created) return;
+
+  tasks.unshift(created);
   saveTasks();
   renderTasks();
 }
@@ -724,8 +900,8 @@ function createTaskProgrammatically(text) {
 function removeTaskProgrammatically(searchText) {
   const lowerSearch = searchText.toLowerCase();
   const taskIndex = tasks.findIndex(t => 
-    t.text.toLowerCase().includes(lowerSearch) || 
-    lowerSearch.includes(t.text.toLowerCase())
+    (t.title || t.text || '').toLowerCase().includes(lowerSearch) || 
+    lowerSearch.includes((t.title || t.text || '').toLowerCase())
   );
   
   if (taskIndex > -1) {
