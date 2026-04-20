@@ -11,12 +11,15 @@
   <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
   <meta name="apple-mobile-web-app-title" content="Saidi">
   <link rel="manifest" href="manifest.json">
-  <link rel="apple-touch-icon" href="icons/icon-192.png">
+  <link rel="icon" type="image/jpeg" href="icons/Logo.jpeg">
+  <link rel="shortcut icon" href="icons/Logo.jpeg">
+  <link rel="apple-touch-icon" href="icons/Logo.jpeg">
 
   <title>Saidi</title>
 
   <link rel="preconnect" href="https://fonts.googleapis.com">
-  <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Lora:ital,wght@0,400;0,600;1,400&display=swap">
   <link rel="stylesheet" href="style.css">
 </head>
 <body>
@@ -38,12 +41,8 @@
 
       <div class="sidebar-header">
         <div class="brand">
-          <!-- Simple SVG logo mark -->
-          <svg class="brand-mark" width="28" height="28" viewBox="0 0 28 28" fill="none" aria-hidden="true">
-            <circle cx="14" cy="14" r="14" fill="#10b981"/>
-            <text x="14" y="19" text-anchor="middle" font-size="14" font-weight="700" fill="#fff" font-family="Inter,sans-serif">S</text>
-          </svg>
-          <span class="brand-name">Saidi</span>
+            <img src="icons/Logo.jpeg" alt="Saidi logo" class="brand-logo">
+            <span class="brand-name">Saidi</span>
         </div>
         <!-- Close button — mobile only -->
         <button class="sidebar-close" id="sidebar-close-btn" aria-label="Close sidebar">✕</button>
@@ -109,6 +108,7 @@
       <section id="view-dashboard" class="view-section tasks-area active" aria-labelledby="tasks-heading">
         <h2 id="tasks-heading" class="sr-only">Task list</h2>
 
+        <div class="tasks-card">
         <div class="add-task-form">
           <input
             type="text"
@@ -140,6 +140,7 @@
           <p class="empty-title">You're all clear, Calvin!</p>
           <p class="empty-hint">Add something above and let's get moving.</p>
         </div>
+        </div><!-- /tasks-card -->
       </section>
 
       <!-- ── Calendar view ── -->

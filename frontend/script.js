@@ -389,6 +389,59 @@ function buildBubble(role, text) {
   return wrap;
 }
 
+/**
+ * Build a compact, collapsible logs card from model tool actions.
+ * This is shown right before Saidi's final response bubble.
+ */
+function buildLogsCard(actions) {
+  const card = document.createElement('details');
+  card.className = 'message-logs';
+
+  const summary = document.createElement('summary');
+  summary.className = 'message-logs-summary';
+  summary.textContent = `Thought Process (${actions.length})`;
+  card.appendChild(summary);
+
+  const list = document.createElement('ul');
+  list.className = 'message-logs-list';
+
+  const lines = actions.map(formatActionLogLine);
+  lines.forEach(line => {
+    const item = document.createElement('li');
+    item.className = 'message-logs-item';
+    item.textContent = line;
+    list.appendChild(item);
+  });
+
+  card.appendChild(list);
+  return card;
+}
+
+/** Append logs card to desktop and drawer chat containers. */
+function appendLogs(actions) {
+  const panelCard = buildLogsCard(actions);
+  const drawerCard = buildLogsCard(actions);
+
+  chatMessages.appendChild(panelCard);
+  drawerMessages.appendChild(drawerCard);
+
+  scrollToBottom(chatMessages);
+  scrollToBottom(drawerMessages);
+}
+
+/** Format one human-readable log line for a tool action. */
+function formatActionLogLine(action) {
+  const actionType = typeof action?.type === 'string' ? action.type : 'unknown_action';
+  const taskTextRaw = action?.payload?.task_text;
+  const taskText = typeof taskTextRaw === 'string' ? taskTextRaw.trim() : '';
+
+  if (taskText) {
+    return `Saidi executed ${actionType}: '${taskText}'`;
+  }
+
+  return `Saidi executed ${actionType}.`;
+}
+
 /** Inline SVG for Saidi's "S" avatar */
 function saidiAvatarSvg(size) {
   const fs = Math.round(size * 0.46);
@@ -443,6 +496,10 @@ async function sendMessage(text) {
 
     thinkPanel.remove();
     thinkDrawer.remove();
+
+    if (hasActions) {
+      appendLogs(data.actions);
+    }
 
     appendMessage('saidi', reply);
     chatHistory.push({ role: 'assistant', content: reply });

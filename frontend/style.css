@@ -8,10 +8,10 @@
 /* ── 1. DESIGN TOKENS ──────────────────────────────────────────── */
 :root {
   /* Base surfaces */
-  --clr-base:         #0a0a0b;
-  --clr-surface:      #111113;
-  --clr-surface-2:    #18181b;
-  --clr-border:       rgba(255, 255, 255, 0.07);
+  --clr-base:         #0d1117;
+  --clr-surface:      #161b22;
+  --clr-surface-2:    #21262d;
+  --clr-border:       rgba(255, 255, 255, 0.1);
 
   /* Accent — Saidi green */
   --clr-green:        #10b981;
@@ -24,9 +24,9 @@
   --clr-earth-3:      #d97706;
 
   /* Text */
-  --clr-text:         #f4f4f5;
-  --clr-text-muted:   #71717a;
-  --clr-text-dim:     #3f3f46;
+  --clr-text:         #ffffff;
+  --clr-text-muted:   #8b949e;
+  --clr-text-dim:     #484f58;
 
   /* Liquid glass recipe */
   --glass-bg:         rgba(255, 255, 255, 0.04);
@@ -41,7 +41,7 @@
   /* Layout */
   --sidebar-w:        260px;
   --sidebar-w-col:    68px;   /* collapsed icon-only width */
-  --chat-w:           375px;
+  --chat-w:           clamp(260px, 20vw, 320px);
   --topbar-h:         64px;
 
   /* Shape */
@@ -55,6 +55,7 @@
   --t-fast:   0.15s ease;
   --t-normal: 0.25s ease;
   --t-slow:   0.35s cubic-bezier(0.4, 0, 0.2, 1);
+  --t-ui:     all 0.2s ease-in-out;
 }
 
 
@@ -117,8 +118,10 @@ body {
   height: 100dvh;
   display: flex;
   flex-direction: column;
-  background: var(--clr-surface);
-  border-right: 1px solid var(--clr-border);
+  background: rgba(22, 27, 34, 0.85);
+  backdrop-filter: blur(12px);
+  -webkit-backdrop-filter: blur(12px);
+  border-right: 1px solid rgba(255, 255, 255, 0.1);
   overflow: hidden;
   transition: width var(--t-slow);
   position: relative;
@@ -129,6 +132,10 @@ body {
 .sidebar.collapsed              { width: var(--sidebar-w-col); }
 .sidebar.collapsed .nav-label  { opacity: 0; pointer-events: none; }
 .sidebar.collapsed .brand-name { opacity: 0; pointer-events: none; }
+.sidebar.collapsed .brand-logo {
+  width: 32px;
+  height: 32px;
+}
 
 /* ── Sidebar header ── */
 .sidebar-header {
@@ -149,6 +156,15 @@ body {
   overflow: hidden;
   white-space: nowrap;
   min-width: 0;
+}
+
+.brand-logo {
+  width: 76px;
+  height: 42px;
+  object-fit: contain;
+  object-position: left center;
+  flex-shrink: 0;
+  border-radius: 8px;
 }
 
 .brand-name {
@@ -200,11 +216,23 @@ body {
   font-weight: 500;
   white-space: nowrap;
   overflow: hidden;
-  transition: color var(--t-fast), background var(--t-fast);
+  position: relative;
+  transition: var(--t-ui);
 }
 .nav-item:hover        { color: var(--clr-text);  background: rgba(255,255,255,0.06); }
 .nav-item.active       { color: var(--clr-green); background: var(--clr-green-glow); }
 .nav-item.active:hover { background: rgba(16,185,129,0.22); }
+.nav-item.active::before {
+  content: '';
+  position: absolute;
+  left: 0;
+  top: 50%;
+  transform: translateY(-50%);
+  width: 3px;
+  height: 60%;
+  background: var(--clr-green);
+  border-radius: 0 3px 3px 0;
+}
 
 .nav-icon  { font-size: 1rem; flex-shrink: 0; width: 20px; text-align: center; }
 .nav-label { transition: opacity var(--t-normal); flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; }
@@ -280,9 +308,10 @@ body {
 
 .topbar-title   { flex: 1; min-width: 0; overflow: hidden; }
 .topbar-title h1 {
-  font-size: 1.125rem;
+  font-family: 'Lora', Georgia, serif;
+  font-size: 1.25rem;
   font-weight: 600;
-  letter-spacing: -0.025em;
+  letter-spacing: -0.02em;
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
@@ -323,7 +352,18 @@ body {
 
 /* ── TASK SECTION ── */
 .tasks-area {
-  padding: 1.75rem 2rem 1.75rem;
+  padding: 1.75rem 2rem;
+}
+
+/* Card wrapper — gives the central area depth against the base background */
+.tasks-card {
+  background: var(--clr-surface);
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  border-radius: var(--r-xl);
+  padding: 1.5rem;
+  box-shadow:
+    0 4px 24px rgba(0, 0, 0, 0.3),
+    inset 0 1px 0 rgba(255, 255, 255, 0.05);
 }
 
 /* ── Add task form ── */
@@ -336,23 +376,21 @@ body {
 .task-input-field {
   flex: 1;
   padding: 0.875rem 1.125rem;
-  /* Liquid glass */
-  background: var(--glass-bg);
-  backdrop-filter: var(--glass-blur);
-  -webkit-backdrop-filter: var(--glass-blur);
-  border: 1px solid var(--glass-border);
+  background: var(--clr-surface-2);
+  border: 1px solid rgba(255, 255, 255, 0.06);
   border-radius: var(--r-lg);
   box-shadow: var(--glass-shadow);
   color: var(--clr-text);
   font-size: 0.9375rem;
   font-family: inherit;
   outline: none;
-  transition: border-color var(--t-fast), box-shadow var(--t-fast);
+  transition: var(--t-ui);
 }
 .task-input-field::placeholder { color: var(--clr-text-dim); }
 .task-input-field:focus {
-  border-color: var(--clr-green);
-  box-shadow: 0 0 0 3px var(--clr-green-glow), var(--glass-shadow);
+  background: rgba(33, 38, 45, 0.95);
+  border-color: rgba(16, 185, 129, 0.4);
+  box-shadow: 0 0 0 3px rgba(16, 185, 129, 0.12), var(--glass-shadow);
 }
 
 .btn-add {
@@ -361,15 +399,18 @@ body {
   display: flex;
   align-items: center;
   justify-content: center;
-  background: var(--clr-green);
+  background: linear-gradient(135deg, #10b981, #059669);
   border: none;
   border-radius: var(--r-lg);
   color: #fff;
   cursor: pointer;
   box-shadow: 0 4px 14px rgba(16,185,129,0.35);
-  transition: background var(--t-fast), transform var(--t-fast), box-shadow var(--t-fast);
+  transition: var(--t-ui);
 }
-.btn-add:hover  { background: var(--clr-green-dim); box-shadow: 0 4px 20px rgba(16,185,129,0.5); }
+.btn-add:hover  {
+  box-shadow: 0 0 15px rgba(16, 185, 129, 0.4), 0 4px 20px rgba(16,185,129,0.5);
+  transform: translateY(-1px);
+}
 .btn-add:active { transform: scale(0.93); }
 
 /* ── Filter tabs ── */
@@ -522,13 +563,15 @@ body {
   display: flex;
   flex-direction: column;
   align-items: center;
-  gap: 0.5rem;
-  padding: 4rem 1rem;
+  justify-content: center;
+  gap: 0.75rem;
+  min-height: 55vh;
+  padding: 2rem 1rem;
   text-align: center;
 }
-.empty-icon  { font-size: 2.5rem; margin-bottom: 0.5rem; }
-.empty-title { font-size: 1rem; font-weight: 500; color: var(--clr-text-muted); }
-.empty-hint  { font-size: 0.8125rem; color: var(--clr-text-dim); }
+.empty-icon  { font-size: 4.5rem; margin-bottom: 0.75rem; filter: drop-shadow(0 8px 24px rgba(16,185,129,0.2)); }
+.empty-title { font-size: 1.125rem; font-weight: 500; color: var(--clr-text-muted); letter-spacing: -0.02em; }
+.empty-hint  { font-size: 0.875rem; color: var(--clr-text-dim); }
 
 
 /* ── 7. CHAT PANEL — desktop right column (liquid glass) ─────── */
@@ -538,11 +581,10 @@ body {
   height: 100dvh;
   display: flex;
   flex-direction: column;
-  /* Liquid glass pane */
-  background: rgba(255,255,255,0.025);
-  backdrop-filter: blur(28px) saturate(190%);
-  -webkit-backdrop-filter: blur(28px) saturate(190%);
-  border-left: 1px solid var(--glass-border);
+  background: rgba(22, 27, 34, 0.8);
+  backdrop-filter: blur(12px);
+  -webkit-backdrop-filter: blur(12px);
+  border-left: 1px solid rgba(255, 255, 255, 0.1);
   box-shadow: inset 1px 0 0 rgba(255,255,255,0.04);
   position: relative;
   overflow: hidden;
@@ -703,6 +745,58 @@ body {
 .thinking-dots span:nth-child(2) { animation-delay: 0.15s; }
 .thinking-dots span:nth-child(3) { animation-delay: 0.30s; }
 
+/* Tool/action logs shown above Saidi's final response bubble */
+.message-logs {
+  align-self: flex-start;
+  width: min(80%, 520px);
+  margin: -0.45rem 0 -0.15rem 2rem;
+  border-radius: var(--r-md);
+  border: 1px dashed rgba(16,185,129,0.35);
+  background: rgba(16,185,129,0.08);
+  color: var(--clr-text-muted);
+  overflow: hidden;
+}
+
+.message-logs-summary {
+  list-style: none;
+  cursor: pointer;
+  font-size: 0.76rem;
+  font-weight: 600;
+  letter-spacing: 0.02em;
+  padding: 0.5rem 0.75rem;
+  color: var(--clr-text);
+  user-select: none;
+}
+
+.message-logs-summary::-webkit-details-marker {
+  display: none;
+}
+
+.message-logs-summary::before {
+  content: '▸';
+  margin-right: 0.4rem;
+  color: var(--clr-green);
+}
+
+.message-logs[open] .message-logs-summary::before {
+  content: '▾';
+}
+
+.message-logs[open] {
+  background: rgba(16,185,129,0.12);
+}
+
+.message-logs-list {
+  margin: 0;
+  padding: 0 0.95rem 0.7rem 1.8rem;
+}
+
+.message-logs-item {
+  font-size: 0.78rem;
+  line-height: 1.5;
+  color: var(--clr-text-muted);
+}
+
 /* ── Chat input row ── */
 .chat-input-row {
   display: flex;
@@ -739,15 +833,15 @@ body {
   display: flex;
   align-items: center;
   justify-content: center;
-  background: var(--clr-green);
+  background: linear-gradient(135deg, #10b981, #059669);
   border: none;
   border-radius: var(--r-full);
   color: #fff;
   cursor: pointer;
   box-shadow: 0 3px 12px rgba(16,185,129,0.4);
-  transition: background var(--t-fast), transform var(--t-fast), box-shadow var(--t-fast);
+  transition: var(--t-ui);
 }
-.btn-send:hover  { background: var(--clr-green-dim); box-shadow: 0 4px 18px rgba(16,185,129,0.55); }
+.btn-send:hover  { box-shadow: 0 0 15px rgba(16,185,129,0.4), 0 4px 18px rgba(16,185,129,0.55); }
 .btn-send:active { transform: scale(0.9); }
 
 
@@ -858,7 +952,7 @@ body {
   bottom: 1.5rem;
   right: 1.5rem;
   width: 56px; height: 56px;
-  background: var(--clr-green);
+  background: linear-gradient(135deg, #10b981, #059669);
   border: none;
   border-radius: var(--r-full);
   color: #fff;
@@ -1117,7 +1211,7 @@ body.light-mode .nav-item:hover { background: rgba(0,0,0,0.05); }
   width: 32px; height: 32px;
   flex-shrink: 0;
   display: flex; align-items: center; justify-content: center;
-  background: var(--clr-green);
+  background: linear-gradient(135deg, #10b981, #059669);
   border: none;
   border-radius: var(--r-full);
   color: #fff;
@@ -1133,7 +1227,7 @@ body.light-mode .nav-item:hover { background: rgba(0,0,0,0.05); }
   pointer-events: auto;
   transform: scale(1);
 }
-.ask-send-btn:hover  { background: var(--clr-green-dim); }
+.ask-send-btn:hover  { box-shadow: 0 0 12px rgba(16,185,129,0.45); }
 .ask-send-btn:active { transform: scale(0.9); }
 
 /* Hide ask widget on tablet/mobile — FAB + drawer handles chat there */
@@ -1201,7 +1295,13 @@ body.light-mode .nav-item:hover { background: rgba(0,0,0,0.05); }
 
   /* Layout tweaks */
   .topbar          { padding: 0 1rem; }
-  .tasks-area      { padding: 1.25rem 1rem 5.5rem; }
+  .tasks-area      { padding: 1rem 0.75rem 5.5rem; }
+  .tasks-card      { border-radius: var(--r-lg); padding: 1rem; }
+
+  .message-logs {
+    width: min(88%, 520px);
+    margin-left: 1.55rem;
+  }
 }
 
 /* ── Small phones (≤480px) ── */
