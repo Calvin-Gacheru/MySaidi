@@ -386,7 +386,7 @@ body {
   outline: none;
   transition: var(--t-ui);
 }
-.task-input-field::placeholder { color: var(--clr-text-dim); }
+.task-input-field::placeholder { color: var(--clr-text-muted); }
 .task-input-field:focus {
   background: rgba(33, 38, 45, 0.95);
   border-color: rgba(16, 185, 129, 0.4);
@@ -404,13 +404,15 @@ body {
   border-radius: var(--r-lg);
   color: #fff;
   cursor: pointer;
-  box-shadow: 0 4px 14px rgba(16,185,129,0.35);
+  box-shadow: 0 2px 8px rgba(16,185,129,0.2);
   transition: var(--t-ui);
 }
+
 .btn-add:hover  {
-  box-shadow: 0 0 15px rgba(16, 185, 129, 0.4), 0 4px 20px rgba(16,185,129,0.5);
+  box-shadow: 0 4px 12px rgba(16, 185, 129, 0.3);
   transform: translateY(-1px);
 }
+
 .btn-add:active { transform: scale(0.93); }
 
 /* ── Filter tabs ── */
@@ -568,6 +570,10 @@ body {
   min-height: 55vh;
   padding: 2rem 1rem;
   text-align: center;
+}
+
+.empty-state[hidden] {
+  display: none !important;
 }
 .empty-icon  { font-size: 4.5rem; margin-bottom: 0.75rem; filter: drop-shadow(0 8px 24px rgba(16,185,129,0.2)); }
 .empty-title { font-size: 1.125rem; font-weight: 500; color: var(--clr-text-muted); letter-spacing: -0.02em; }
@@ -821,7 +827,7 @@ body {
   min-width: 0;
   transition: border-color var(--t-fast), box-shadow var(--t-fast);
 }
-.chat-input-field::placeholder { color: var(--clr-text-dim); }
+.chat-input-field::placeholder { color: var(--clr-text-muted); }
 .chat-input-field:focus {
   border-color: var(--clr-green);
   box-shadow: 0 0 0 3px var(--clr-green-glow);
@@ -838,10 +844,11 @@ body {
   border-radius: var(--r-full);
   color: #fff;
   cursor: pointer;
-  box-shadow: 0 3px 12px rgba(16,185,129,0.4);
+  box-shadow: 0 2px 8px rgba(16,185,129,0.2);
   transition: var(--t-ui);
 }
-.btn-send:hover  { box-shadow: 0 0 15px rgba(16,185,129,0.4), 0 4px 18px rgba(16,185,129,0.55); }
+
+.btn-send:hover  { box-shadow: 0 4px 12px rgba(16,185,129,0.3); }
 .btn-send:active { transform: scale(0.9); }
 
 
@@ -961,12 +968,12 @@ body {
   justify-content: center;
   cursor: pointer;
   box-shadow:
-    0 4px 20px rgba(16,185,129,0.5),
-    0 2px 8px rgba(0,0,0,0.3);
+    0 4px 12px rgba(16,185,129,0.3),
+    0 2px 8px rgba(0,0,0,0.2);
   z-index: 280;
   transition: background var(--t-fast), transform var(--t-fast), box-shadow var(--t-fast);
 }
-.chat-fab:hover  { background: var(--clr-green-dim); transform: scale(1.06); box-shadow: 0 6px 28px rgba(16,185,129,0.6); }
+.chat-fab:hover  { background: var(--clr-green-dim); transform: scale(1.06); box-shadow: 0 6px 16px rgba(16,185,129,0.6), 0 2px 8px rgba(0,0,0,0.2); }
 .chat-fab:active { transform: scale(0.94); }
 
 /* Unread indicator dot on FAB */
@@ -1205,7 +1212,7 @@ body.light-mode .nav-item:hover { background: rgba(0,0,0,0.05); }
   font-family: inherit;
   min-width: 0;
 }
-.ask-input::placeholder { color: var(--clr-text-dim); }
+.ask-input::placeholder { color: var(--clr-text-muted); }
 
 .ask-send-btn {
   width: 32px; height: 32px;

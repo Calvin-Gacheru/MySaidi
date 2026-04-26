@@ -108,7 +108,7 @@ const drawerMessages  = document.getElementById('drawer-messages');
 const drawerChatInput = document.getElementById('drawer-chat-input');
 const drawerSendBtn   = document.getElementById('drawer-send-btn');
 const chatFab         = document.getElementById('chat-fab');
-const topbarChatBtn   = document.getElementById('topbar-chat-btn');
+//  const topbarChatBtn   = document.getElementById('topbar-chat-btn');
 const drawerCloseBtn  = document.getElementById('drawer-close-btn');
 const drawerHandle    = document.getElementById('drawer-handle');
 
@@ -804,7 +804,7 @@ function bindEvents() {
 
   /* ── Mobile chat drawer ── */
   chatFab.addEventListener('click',      openChatDrawer);
-  topbarChatBtn.addEventListener('click', openChatDrawer);
+  // topbarChatBtn.addEventListener('click', openChatDrawer);
   drawerCloseBtn.addEventListener('click', closeChatDrawer);
   drawerHandle.addEventListener('click',   closeChatDrawer);
   drawerBackdrop.addEventListener('click', closeChatDrawer);
