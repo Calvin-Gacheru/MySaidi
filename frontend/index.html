@@ -84,12 +84,12 @@
     <main class="main-content">
 
       <!-- Top bar: hamburger (mobile) + page title + chat button (mobile) -->
-      <!-- <header class="topbar">
+      <header class="topbar">
         <button class="hamburger" id="hamburger-btn" aria-label="Open sidebar" aria-expanded="false">
           <span></span>
           <span></span>
           <span></span>
-        </button> -->
+        </button>
 
         <div class="topbar-title">
           <h1 id="view-title">Today's Tasks</h1>
@@ -97,11 +97,11 @@
         </div>
 
         <!-- Opens chat drawer on mobile; hidden on desktop (chat panel is always visible) -->
-        <button class="topbar-chat-btn" id="topbar-chat-btn" aria-label="Open Saidi chat">
+        <!-- <button class="topbar-chat-btn" id="topbar-chat-btn" aria-label="Open Saidi chat">
           <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
             <path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"></path>
           </svg>
-        </button>
+        </button> -->
       </header>
 
       <!-- ── Dashboard view ── -->
@@ -114,7 +114,7 @@
             type="text"
             id="task-input"
             class="task-input-field"
-            placeholder="Add a task, Calvin…"
+            placeholder="Add a task..."
             autocomplete="off"
             maxlength="200"
             aria-label="New task"
@@ -137,7 +137,7 @@
 
         <div id="empty-state" class="empty-state" hidden aria-live="polite">
           <span class="empty-icon" aria-hidden="true">🌱</span>
-          <p class="empty-title">You're all clear, Calvin!</p>
+          <p class="empty-title">You're all set!</p>
           <p class="empty-hint">Add something above and let's get moving.</p>
         </div>
         </div><!-- /tasks-card -->
@@ -182,26 +182,7 @@
         </div>
       </section>
 
-      <!-- ── Floating ask widget (desktop) ── -->
-      <div class="ask-widget" id="ask-widget">
-        <div class="ask-widget-inner">
-          <div class="ask-avatar-sm" aria-hidden="true">S</div>
-          <input
-            type="text"
-            id="ask-input"
-            class="ask-input"
-            placeholder="Ask Saidi anything…"
-            maxlength="500"
-            autocomplete="off"
-            aria-label="Quick ask Saidi"
-          >
-          <button id="ask-send" class="ask-send-btn" aria-label="Send to Saidi">
-            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
-              <line x1="22" y1="2" x2="11" y2="13"></line>
-              <polygon points="22 2 15 22 11 13 2 9 22 2"></polygon>
-            </svg>
-          </button>
-        </div>
+
       </div>
 
     </main>
@@ -211,61 +192,6 @@
          RIGHT CHAT PANEL — desktop only
          On mobile this panel is hidden; chat goes to drawer
     ───────────────────────────────────────────────────── -->
-    <aside id="chat-panel" class="chat-panel" aria-label="Chat with Saidi">
-
-      <div class="chat-panel-header">
-        <!-- Saidi avatar -->
-        <div class="saidi-avatar" aria-hidden="true">
-          <svg width="32" height="32" viewBox="0 0 32 32" fill="none">
-            <circle cx="16" cy="16" r="16" fill="#10b981"/>
-            <text x="16" y="21" text-anchor="middle" font-size="15" font-weight="700" fill="#fff" font-family="Inter,sans-serif">S</text>
-          </svg>
-        </div>
-        <div class="saidi-meta">
-          <span class="saidi-name">Saidi</span>
-          <span class="saidi-status">
-            <span class="status-dot" aria-hidden="true"></span>
-            Online
-          </span>
-        </div>
-      </div>
-
-      <!-- Messages area — JS appends .message.user or .message.saidi bubbles here -->
-      <div id="chat-messages" class="chat-messages" role="log" aria-live="polite" aria-label="Chat messages">
-        <!-- Welcome message -->
-        <div class="message saidi">
-          <div class="msg-avatar" aria-hidden="true">
-            <svg width="24" height="24" viewBox="0 0 24 24" fill="none">
-              <circle cx="12" cy="12" r="12" fill="#10b981"/>
-              <text x="12" y="16" text-anchor="middle" font-size="11" font-weight="700" fill="#fff" font-family="Inter,sans-serif">S</text>
-            </svg>
-          </div>
-          <div class="msg-bubble">
-            Mambo, Calvin! 👋 Ready to tackle the day? Add a task up there or just ask me anything — I've got you covered like a good matatu on a rainy Nairobi morning. 🌧️
-          </div>
-        </div>
-      </div>
-
-      <!-- Chat input -->
-      <div class="chat-input-row">
-        <input
-          type="text"
-          id="chat-input"
-          class="chat-input-field"
-          placeholder="Ask Saidi anything…"
-          autocomplete="off"
-          maxlength="500"
-          aria-label="Message Saidi"
-        >
-        <button class="btn-send" id="send-btn" aria-label="Send message">
-          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
-            <line x1="22" y1="2" x2="11" y2="13"></line>
-            <polygon points="22 2 15 22 11 13 2 9 22 2"></polygon>
-          </svg>
-        </button>
-      </div>
-
-    </aside>
 
   </div><!-- /app-shell -->
 

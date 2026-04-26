@@ -568,7 +568,7 @@ body {
   justify-content: center;
   gap: 0.75rem;
   min-height: 55vh;
-  padding: 2rem 1rem;
+  padding: 3rem 1rem;
   text-align: center;
 }
 
@@ -955,15 +955,17 @@ body {
 
 /* ── 10. FLOATING ACTION BUTTON ──────────────────────────────── */
 .chat-fab {
+  display: flex;
   position: fixed;
   bottom: 1.5rem;
   right: 1.5rem;
+  z-index: 999; /* Force it to the top */
+  pointer-events: auto;
   width: 56px; height: 56px;
   background: linear-gradient(135deg, #10b981, #059669);
   border: none;
   border-radius: var(--r-full);
   color: #fff;
-  display: none;   /* shown only on tablet/mobile */
   align-items: center;
   justify-content: center;
   cursor: pointer;
@@ -1269,8 +1271,8 @@ body.light-mode .nav-item:hover { background: rgba(0,0,0,0.05); }
 
 /* ── Tablet (≤1023px): hide right chat panel, show FAB + topbar chat btn ── */
 @media (max-width: 1023px) {
-  .chat-panel      { display: none; }
-  .chat-fab        { display: flex; }
+  /* .chat-panel      { display: none; }
+  .chat-fab        { display: flex; } */
   .topbar-chat-btn { display: flex; }
 }
 
@@ -1318,4 +1320,18 @@ body.light-mode .nav-item:hover { background: rgba(0,0,0,0.05); }
   .filter-tabs     { width: 100%; justify-content: stretch; }
   .filter-btn      { flex: 1; text-align: center; }
   .msg-bubble      { max-width: 88%; }
+}
+
+@media (min-width: 1024px) {
+  .chat-drawer {
+    width: 450px;
+    left: calc(100% - 470px); /* Positions it near the FAB */
+    right: 20px;
+    border-left: 1px solid var(--glass-border);
+    border-right: 1px solid var(--glass-border);
+  }
+  
+  .drawer-backdrop {
+    background: rgba(0,0,0,0.2); /* Lighter dimming for desktop */
+  }
 }

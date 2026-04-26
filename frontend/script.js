@@ -97,9 +97,9 @@ const emptyState = document.getElementById('empty-state');
 const filterBtns = document.querySelectorAll('.filter-btn');
 
 // Desktop chat panel
-const chatMessages = document.getElementById('chat-messages');
-const chatInput    = document.getElementById('chat-input');
-const sendBtn      = document.getElementById('send-btn');
+// const chatMessages = document.getElementById('chat-messages');
+// const chatInput    = document.getElementById('chat-input');
+// const sendBtn      = document.getElementById('send-btn');
 
 // Mobile chat drawer
 const chatDrawer      = document.getElementById('chat-drawer');
@@ -472,18 +472,28 @@ function setFilter(filter) {
  *
  * Returns { panelEl, drawerEl } so callers can remove thinking bubbles.
  */
+
 function appendMessage(role, text) {
-  const panelEl  = buildBubble(role, text);
   const drawerEl = buildBubble(role, text);
-
-  chatMessages.appendChild(panelEl);
   drawerMessages.appendChild(drawerEl);
-
-  scrollToBottom(chatMessages);
+  
   scrollToBottom(drawerMessages);
-
-  return { panelEl, drawerEl };
+  
+  return { drawerEl };
 }
+
+// function appendMessage(role, text) {
+//   const panelEl  = buildBubble(role, text);
+//   const drawerEl = buildBubble(role, text);
+
+//   chatMessages.appendChild(panelEl);
+//   drawerMessages.appendChild(drawerEl);
+
+//   scrollToBottom(chatMessages);
+//   scrollToBottom(drawerMessages);
+
+//   return { panelEl, drawerEl };
+// }
 
 /**
  * Build a single message bubble element.
@@ -551,15 +561,20 @@ function buildLogsCard(actions) {
 
 /** Append logs card to desktop and drawer chat containers. */
 function appendLogs(actions) {
-  const panelCard = buildLogsCard(actions);
   const drawerCard = buildLogsCard(actions);
-
-  chatMessages.appendChild(panelCard);
   drawerMessages.appendChild(drawerCard);
-
-  scrollToBottom(chatMessages);
   scrollToBottom(drawerMessages);
 }
+// function appendLogs(actions) {
+//   const panelCard = buildLogsCard(actions);
+//   const drawerCard = buildLogsCard(actions);
+
+//   chatMessages.appendChild(panelCard);
+//   drawerMessages.appendChild(drawerCard);
+
+//   scrollToBottom(chatMessages);
+//   scrollToBottom(drawerMessages);
+// }
 
 /** Format one human-readable log line for a tool action. */
 function formatActionLogLine(action) {
@@ -717,12 +732,12 @@ function sendMobile() {
 
 /** Disable/re-enable all chat inputs while a request is in flight */
 function setInputsDisabled(disabled) {
-  chatInput.disabled       = disabled;
+  //chatInput.disabled       = disabled;
   drawerChatInput.disabled = disabled;
-  sendBtn.disabled         = disabled;
+  //sendBtn.disabled         = disabled;
   drawerSendBtn.disabled   = disabled;
 
-  sendBtn.style.opacity      = disabled ? '0.5' : '';
+  //sendBtn.style.opacity      = disabled ? '0.5' : '';
   drawerSendBtn.style.opacity = disabled ? '0.5' : '';
 }
 
@@ -793,18 +808,8 @@ function bindEvents() {
     btn.addEventListener('click', () => setFilter(btn.dataset.filter));
   });
 
-  /* ── Desktop chat ── */
-  sendBtn.addEventListener('click', sendDesktop);
-  chatInput.addEventListener('keydown', e => {
-    if (e.key === 'Enter' && !e.shiftKey) {
-      e.preventDefault();
-      sendDesktop();
-    }
-  });
-
-  /* ── Mobile chat drawer ── */
-  chatFab.addEventListener('click',      openChatDrawer);
-  // topbarChatBtn.addEventListener('click', openChatDrawer);
+  /* ── Mobile chat drawer (Now Universal) ── */
+  chatFab.addEventListener('click',       openChatDrawer);
   drawerCloseBtn.addEventListener('click', closeChatDrawer);
   drawerHandle.addEventListener('click',   closeChatDrawer);
   drawerBackdrop.addEventListener('click', closeChatDrawer);
@@ -863,17 +868,18 @@ function bindEvents() {
       // Restore correct toggle icon
       setSidebarCloseIcon();
     }
-    if (window.innerWidth > 1023) {
-      // Desktop: chat panel is visible, hide drawer + FAB
-      chatDrawer.classList.remove('open');
-      drawerBackdrop.classList.remove('visible');
-      chatFab.style.display = 'none';
-    } else {
-      // Tablet/mobile: show FAB if drawer is closed
-      if (!chatDrawer.classList.contains('open')) {
-        chatFab.style.display = '';
-      }
-    }
+    // if (window.innerWidth > 1023) {
+    //   // Desktop: chat panel is visible, hide drawer + FAB
+    //   chatDrawer.classList.remove('open');
+    //   drawerBackdrop.classList.remove('visible');
+    //   chatFab.style.display = 'none';
+    // } else {
+    //   // Tablet/mobile: show FAB if drawer is closed
+    //   if (!chatDrawer.classList.contains('open')) {
+    //     chatFab.style.display = '';
+    //   }
+    // }
+    chatFab.style.display = chatDrawer.classList.contains('open') ? 'none' : 'flex';
   });
 }
 
