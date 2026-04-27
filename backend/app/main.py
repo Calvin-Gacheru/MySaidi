@@ -2,6 +2,16 @@
 import os
 from contextlib import asynccontextmanager
 from pathlib import Path
+from dotenv import load_dotenv
+
+# # Load environment variables from .env file
+# load_dotenv()
+
+# Traverse from backend/app/main.py up to the root directory
+env_path = Path(__file__).parent.parent.parent / ".env"
+load_dotenv(dotenv_path=env_path)
+
+DATABASE_URL = os.environ.get("DATABASE_URL")
 
 try:
     import asyncpg
@@ -16,6 +26,7 @@ try:
 except ModuleNotFoundError:
     from routers import chat, tasks
 
+# This will now successfully read from your .env
 DATABASE_URL = os.environ.get("DATABASE_URL")
 FRONTEND_DIR = Path(__file__).parent.parent.parent / "frontend"
 

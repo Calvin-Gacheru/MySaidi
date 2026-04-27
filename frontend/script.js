@@ -802,15 +802,6 @@ async function sendMessage(text) {
     appendMessage('saidi', reply);
     chatHistory.push({ role: 'assistant', content: reply });
 
-    // if (data.actions && data.actions.length > 0) {
-    //   data.actions.forEach(action => {
-    //     if (action.type === 'add_task') {
-    //       createTaskProgrammatically(action.payload.task_text);
-    //     } else if (action.type === 'remove_task') {
-    //       removeTaskProgrammatically(action.payload.task_text);
-    //     }
-    //   });
-    // }
     // Overwrite frontend state with the backend's exact calendar state
     if (Array.isArray(data.updated_tasks)) {
       const syncedTasks = normalizeTaskList(data.updated_tasks);
@@ -824,7 +815,7 @@ async function sendMessage(text) {
 
       saveTasks();
       renderTasks();
-      if (document.getElementById('view-calendar').classList.contains('active')) {
+      if (document.getElementById('view-calendar')?.classList.contains('active')) {
         renderCalendar();
       }
     }

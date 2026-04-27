@@ -109,6 +109,7 @@ async def chat_endpoint(req: ChatRequest, request: Request):
             graph.ainvoke({"messages": messages}, config),
             timeout=25,
         )
+        print(result)
     except asyncio.TimeoutError:
         print("[Saidi] Chat invocation timed out.")
         return {
@@ -126,9 +127,19 @@ async def chat_endpoint(req: ChatRequest, request: Request):
             "updated_tasks": await _snapshot_tasks(request, active_tasks),
         }
 
+
     result_messages = result.get("messages", []) if isinstance(result, dict) else []
     if result_messages:
-        final_message = _extract_message_text(getattr(result_messages[-1], "content", ""))
+        last_message = result_messages[-1]
+        final_message = _extract_message_text(getattr(last_message, "content", ""))
+
+        # Fallback - extract text from tool calls if content is empty
+        if not final_message and getattr(last_message, "too_calls", None):
+            for tool in last_message.tool_calls:
+                if tool.get("name") == "request_clarification":
+                    final_message = tool.get("args", {}).get("question_text", "")
+                    break                
+    
     else:
         final_message = ""
 

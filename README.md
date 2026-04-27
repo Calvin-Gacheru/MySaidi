@@ -7,22 +7,29 @@ Saidi is a FastAPI backend with a static frontend served by the same app.
 ```
 MySaidi/
 ├── backend/
+│   ├── agents.py
+│   ├── database.py
+│   ├── requirements.txt
+│   ├── schemas.py
 │   ├── app/
 │   │   ├── __init__.py
 │   │   └── main.py
-│   └── requirements.txt
+│   └── routers/
+│       ├── chat.py
+│       └── tasks.py
 ├── frontend/
 │   ├── icons/
 │   ├── index.html
 │   ├── manifest.json
 │   ├── script.js
 │   └── style.css
-├── .env.example
+├── LICENSE
 ├── Procfile
-├── railway.json
-├── requirements.txt
 ├── pyproject.toml
-└── README.md
+├── railway.json
+├── README.md
+├── requirements.txt
+└── uv.lock
 ```
 
 ## Local Development
