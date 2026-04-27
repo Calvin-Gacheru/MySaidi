@@ -58,10 +58,15 @@
           <span class="nav-icon" aria-hidden="true">🗓️</span>
           <span class="nav-label">Calendar</span>
         </li>
+        <li class="nav-item" data-view="habits">
+          <span class="nav-icon" aria-hidden="true">🔄</span>
+          <span class="nav-label">Habits</span>
+        </li>
         <li class="nav-item" data-view="private">
           <span class="nav-icon" aria-hidden="true">🔒</span>
           <span class="nav-label">Private</span>
         </li>
+
       </ul>
 
       <!-- Bottom nav (settings etc.) -->
@@ -109,7 +114,7 @@
         <h2 id="tasks-heading" class="sr-only">Task list</h2>
 
         <div class="tasks-card">
-        <div class="add-task-form">
+        <div class="add-task-form" style="display: flex; flex-direction: column; gap: 0.5rem;">
           <input
             type="text"
             id="task-input"
@@ -118,13 +123,13 @@
             autocomplete="off"
             maxlength="200"
             aria-label="New task"
+            required
           >
-          <button class="btn-add" id="add-task-btn" aria-label="Add task">
-            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" aria-hidden="true">
-              <line x1="12" y1="5" x2="12" y2="19"></line>
-              <line x1="5" y1="12" x2="19" y2="12"></line>
-            </svg>
-          </button>
+          <div style="display: flex; gap: 0.5rem;">
+            <input type="datetime-local" id="task-start" class="task-input-field" required>
+            <input type="datetime-local" id="task-end" class="task-input-field">
+            <button class="btn-add" id="add-task-btn">Add</button>
+          </div>
         </div>
 
         <div class="filter-tabs" role="tablist" aria-label="Filter tasks">
@@ -171,6 +176,30 @@
               </button>
             </div>
           </div>
+        </div>
+      </section>
+
+      <!--Habit tracker-->
+      <section id="view-habits" class="view-section tasks-area" aria-labelledby="habits-heading">
+        <h2 id="habits-heading" class="sr-only">Habit Tracker</h2>
+
+        <div class="tasks-card">
+          <div class="add-task-form">
+            <input type="text" id="habit-input" class="task-input-field" placeholder="Build a new habit..." autocomplete="off">
+            <select id="habit-type" class="task-input-field" style="max-width: 110px; cursor: pointer;">
+              <option value="tracker">Tracker</option>
+              <option value="breaker">Breaker</option>
+            </select>
+            <input type="number" id="habit-quota" class="task-input-field" placeholder="Quota" min="1" value="1" style="max-width: 80px;" title="Daily Quota">
+            <button class="btn-add" id="add-habit-btn" aria-label="Add habit">
+              <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" aria-hidden="true">
+                <line x1="12" y1="5" x2="12" y2="19"></line>
+                <line x1="5" y1="12" x2="19" y2="12"></line>
+              </svg>
+            </button>
+          </div>
+
+          <ul id="habit-list" class="task-list" role="list" aria-label="Habits"></ul>
         </div>
       </section>
 

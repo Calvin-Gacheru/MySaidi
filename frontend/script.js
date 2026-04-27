@@ -8,6 +8,8 @@
 /* ── CONFIG ──────────────────────────────────────────────────── */
 const STORAGE_KEY = 'saidi_tasks';
 const API_CHAT    = '/chat';
+const API_TASKS   = '/api/tasks';
+const API_TASKS_SYNC = '/api/tasks/sync';
 
 /* ── STATE ───────────────────────────────────────────────────── */
 let tasks        = [];           // [{ id, text, done, createdAt }]
@@ -81,6 +83,114 @@ function toBackendEvent(task) {
   };
 }
 
+function toTaskApiPayload(task) {
+  const normalized = normalizeTaskRecord(task);
+  if (!normalized) return null;
+
+  return {
+    id: normalized.id,
+    title: normalized.title,
+    start_time: normalized.start_time,
+    end_time: normalized.end_time,
+    is_flexible: normalized.is_flexible,
+    done: normalized.done,
+    createdAt: normalized.createdAt,
+  };
+}
+
+function readLocalTaskCache() {
+  try {
+    const raw = localStorage.getItem(STORAGE_KEY);
+    return normalizeTaskList(raw ? JSON.parse(raw) : []);
+  } catch {
+    return [];
+  }
+}
+
+async function readApiError(res) {
+  try {
+    const data = await res.json();
+    if (typeof data?.detail === 'string' && data.detail.trim()) {
+      return data.detail.trim();
+    }
+  } catch {
+    // ignore JSON parse errors and fall through to status text
+  }
+  return `HTTP ${res.status}`;
+}
+
+async function fetchTasksFromBackend() {
+  const res = await fetch(API_TASKS);
+  if (!res.ok) {
+    throw new Error(await readApiError(res));
+  }
+
+  const data = await res.json();
+  return normalizeTaskList(data);
+}
+
+async function syncTasksToBackend(taskList) {
+  const payloadTasks = taskList
+    .map(toTaskApiPayload)
+    .filter(Boolean);
+
+  const res = await fetch(API_TASKS_SYNC, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({
+      tasks: payloadTasks,
+      replace_existing: false,
+    }),
+  });
+
+  if (!res.ok) {
+    throw new Error(await readApiError(res));
+  }
+
+  const data = await res.json();
+  return normalizeTaskList(data);
+}
+
+async function createTaskInBackend(taskPayload) {
+  const res = await fetch(API_TASKS, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(taskPayload),
+  });
+
+  if (!res.ok) {
+    throw new Error(await readApiError(res));
+  }
+
+  return res.json();
+}
+
+async function updateTaskInBackend(taskId, patch) {
+  const res = await fetch(`${API_TASKS}/${encodeURIComponent(taskId)}`, {
+    method: 'PATCH',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(patch),
+  });
+
+  if (!res.ok) {
+    throw new Error(await readApiError(res));
+  }
+
+  return res.json();
+}
+
+async function deleteTaskInBackend(taskId) {
+  const res = await fetch(`${API_TASKS}/${encodeURIComponent(taskId)}`, {
+    method: 'DELETE',
+  });
+
+  if (!res.ok) {
+    throw new Error(await readApiError(res));
+  }
+
+  return res.json();
+}
+
 /* ── DOM REFS ────────────────────────────────────────────────── */
 // Layout
 const sidebar         = document.getElementById('sidebar');
@@ -116,13 +226,14 @@ const drawerHandle    = document.getElementById('drawer-handle');
 /* ================================================================
    INIT
 ================================================================ */
-function init() {
+async function init() {
   setDateLine();
-  loadTasks();
+  await loadTasks();
   renderTasks();
   setSidebarCloseIcon();
   loadSettings();
   bindEvents();
+  syncChatFabVisibility();
 }
 
 
@@ -144,6 +255,7 @@ function setDateLine() {
 const VIEW_TITLES = {
   dashboard: "Today's Tasks",
   calendar:  'Calendar',
+  habits:    'Habit Tracker',
   settings:  'Settings',
   private:   'Private',
 };
@@ -301,7 +413,7 @@ function openChatDrawer() {
   chatDrawer.classList.add('open');
   chatDrawer.setAttribute('aria-hidden', 'false');
   drawerBackdrop.classList.add('visible');
-  chatFab.style.display = 'none';
+  syncChatFabVisibility();
   // Focus input after the slide-up transition finishes
   setTimeout(() => drawerChatInput.focus(), 360);
 }
@@ -310,10 +422,11 @@ function closeChatDrawer() {
   chatDrawer.classList.remove('open');
   chatDrawer.setAttribute('aria-hidden', 'true');
   drawerBackdrop.classList.remove('visible');
-  // Only restore FAB when not on desktop (where panel is visible instead)
-  if (window.innerWidth <= 1023) {
-    chatFab.style.display = '';
-  }
+  syncChatFabVisibility();
+}
+
+function syncChatFabVisibility() {
+  chatFab.style.display = chatDrawer.classList.contains('open') ? 'none' : 'flex';
 }
 
 
@@ -322,13 +435,24 @@ function closeChatDrawer() {
 ================================================================ */
 
 /** Load tasks array from localStorage */
-function loadTasks() {
+async function loadTasks() {
+  const cachedTasks = readLocalTaskCache();
+  tasks = cachedTasks;
+
   try {
-    const raw = localStorage.getItem(STORAGE_KEY);
-    tasks = normalizeTaskList(raw ? JSON.parse(raw) : []);
-  } catch {
-    tasks = [];
+    const remoteTasks = await fetchTasksFromBackend();
+    if (remoteTasks.length === 0 && cachedTasks.length > 0) {
+      const syncedTasks = await syncTasksToBackend(cachedTasks);
+      tasks = syncedTasks.length > 0 ? syncedTasks : cachedTasks;
+    } else {
+      tasks = remoteTasks;
+    }
+  } catch (err) {
+    console.warn('[Saidi] Task DB sync unavailable, using local cache:', err);
+    tasks = cachedTasks;
   }
+
+  saveTasks();
 }
 
 /** Write tasks array back to localStorage */
@@ -337,53 +461,101 @@ function saveTasks() {
 }
 
 /** Add a new task from the input field */
-function addTask() {
-  const text = taskInput.value.trim();
-  if (!text) return;
+async function addTask() {
+  const text = document.getElementById('task-input').value.trim();
+  const startTime = document.getElementById('task-start').value;
+  const endTime = document.getElementById('task-end').value;
+  
+  if (!text || !startTime) {
+    alert('Task title and start time are required.');
+    return;
+  }
 
-  const newTask = normalizeTaskRecord({
-    id: crypto.randomUUID(),
+  const draftTask = {
     title: text,
+    start_time: new Date(startTime).toISOString(),
+    end_time: endTime ? new Date(endTime).toISOString() : null,
+    is_flexible: false,
     done: false,
-    start_time: null,
-    end_time: null,
-    is_flexible: true,
     createdAt: Date.now(),
-  });
+  };
 
-  if (!newTask) return;
-
-  tasks.unshift(newTask); // newest at top
+  try {
+    const createdTask = await createTaskInBackend(draftTask);
+    const normalizedCreated = normalizeTaskRecord(createdTask);
+    if (!normalizedCreated) {
+      throw new Error('Created task response was invalid.');
+    }
+    tasks.unshift(normalizedCreated);
+  } catch (err) {
+    console.warn('[Saidi] Failed to persist task to DB, using local fallback:', err);
+    const fallbackTask = normalizeTaskRecord({
+      id: crypto.randomUUID(),
+      ...draftTask,
+    });
+    if (fallbackTask) {
+      tasks.unshift(fallbackTask);
+    }
+  }
 
   saveTasks();
   renderTasks();
-  if (document.getElementById('view-calendar').classList.contains('active')) {
-    renderCalendar();
-  }
-  taskInput.value = '';
-  taskInput.focus();
+  renderCalendar();
+
+  // Clear inputs
+  document.getElementById('task-input').value = '';
+  document.getElementById('task-start').value = '';
+  document.getElementById('task-end').value = '';
 }
 
 /** Toggle a task's done state */
-function toggleTask(id) {
+async function toggleTask(id) {
   const task = tasks.find(t => t.id === id);
   if (task) {
+    const previousDone = task.done;
     task.done = !task.done;
+
     saveTasks();
     renderTasks();
     if (document.getElementById('view-calendar').classList.contains('active')) {
       renderCalendar();
     }
+
+    try {
+      await updateTaskInBackend(id, { done: task.done });
+    } catch (err) {
+      console.warn('[Saidi] Failed to persist task toggle, rolling back:', err);
+      task.done = previousDone;
+      saveTasks();
+      renderTasks();
+      if (document.getElementById('view-calendar').classList.contains('active')) {
+        renderCalendar();
+      }
+    }
   }
 }
 
 /** Remove a task permanently */
-function deleteTask(id) {
+async function deleteTask(id) {
+  const previousTasks = tasks.slice();
   tasks = tasks.filter(t => t.id !== id);
+
   saveTasks();
   renderTasks();
   if (document.getElementById('view-calendar').classList.contains('active')) {
     renderCalendar();
+  }
+
+  try {
+    await deleteTaskInBackend(id);
+  } catch (err) {
+    console.warn('[Saidi] Failed to delete task in DB, restoring local state:', err);
+    tasks = previousTasks;
+    saveTasks();
+    renderTasks();
+    if (document.getElementById('view-calendar').classList.contains('active')) {
+      renderCalendar();
+    }
   }
 }
 
@@ -404,24 +576,6 @@ function renderTasks() {
     li.dataset.id  = task.id;
 
 
-
-    // li.innerHTML = `
-    //   <button
-    //     class="task-check${task.done ? ' checked' : ''}"
-    //     aria-label="${task.done ? 'Mark incomplete' : 'Mark complete'}"
-    //     aria-pressed="${task.done}"
-    //   >${task.done ? '✓' : ''}</button>
-
-    //   <span class="task-text">${escapeHtml(task.text)}</span>
-
-    //   <button class="task-delete" aria-label="Delete task">
-    //     <svg width="14" height="14" viewBox="0 0 24 24" fill="none"
-    //          stroke="currentColor" stroke-width="2.5" stroke-linecap="round">
-    //       <line x1="18" y1="6"  x2="6"  y2="18"></line>
-    //       <line x1="6"  y1="6"  x2="18" y2="18"></line>
-    //     </svg>
-    //   </button>
-    // `;
     const displayTitle = task.title || task.text || 'Untitled event';
     const taskStart = task.start_time ? new Date(task.start_time) : null;
     const hasValidStart = taskStart && !Number.isNaN(taskStart.getTime());
@@ -479,21 +633,10 @@ function appendMessage(role, text) {
   
   scrollToBottom(drawerMessages);
   
-  return { drawerEl };
+  return { panelEl: null, drawerEl };
 }
 
-// function appendMessage(role, text) {
-//   const panelEl  = buildBubble(role, text);
-//   const drawerEl = buildBubble(role, text);
 
-//   chatMessages.appendChild(panelEl);
-//   drawerMessages.appendChild(drawerEl);
-
-//   scrollToBottom(chatMessages);
-//   scrollToBottom(drawerMessages);
-
-//   return { panelEl, drawerEl };
-// }
 
 /**
  * Build a single message bubble element.
@@ -565,16 +708,6 @@ function appendLogs(actions) {
   drawerMessages.appendChild(drawerCard);
   scrollToBottom(drawerMessages);
 }
-// function appendLogs(actions) {
-//   const panelCard = buildLogsCard(actions);
-//   const drawerCard = buildLogsCard(actions);
-
-//   chatMessages.appendChild(panelCard);
-//   drawerMessages.appendChild(drawerCard);
-
-//   scrollToBottom(chatMessages);
-//   scrollToBottom(drawerMessages);
-// }
 
 /** Format one human-readable log line for a tool action. */
 function formatActionLogLine(action) {
@@ -659,8 +792,8 @@ async function sendMessage(text) {
     const successMsg = hasActions ? 'Done, I have applied that update.' : '';
     const reply = replyText || successMsg || "Sorry, sir — I couldn't quite get that. Try again?";
 
-    thinkPanel.remove();
-    thinkDrawer.remove();
+    thinkPanel?.remove();
+    thinkDrawer?.remove();
 
     if (hasActions) {
       appendLogs(data.actions);
@@ -680,16 +813,14 @@ async function sendMessage(text) {
     // }
     // Overwrite frontend state with the backend's exact calendar state
     if (Array.isArray(data.updated_tasks)) {
-      const doneTasks = tasks
-        .filter(t => t.done)
+      const syncedTasks = normalizeTaskList(data.updated_tasks);
+      const syncedIds = new Set(syncedTasks.map(t => t.id));
+      const preservedDone = tasks
+        .filter(t => t.done && !syncedIds.has(t.id))
         .map(normalizeTaskRecord)
         .filter(Boolean);
 
-      const syncedActive = normalizeTaskList(data.updated_tasks).map(t => ({ ...t, done: false }));
-      const activeIds = new Set(syncedActive.map(t => t.id));
-      const preservedDone = doneTasks.filter(t => !activeIds.has(t.id));
-
-      tasks = [...syncedActive, ...preservedDone];
+      tasks = [...syncedTasks, ...preservedDone];
 
       saveTasks();
       renderTasks();
@@ -699,8 +830,8 @@ async function sendMessage(text) {
     }
 
   } catch (err) {
-    thinkPanel.remove();
-    thinkDrawer.remove();
+    thinkPanel?.remove();
+    thinkDrawer?.remove();
 
     const errMsg = navigator.onLine
       ? "Oops! Something went sideways on my end, Calvin. Give it another shot! 🙏"
@@ -879,7 +1010,7 @@ function bindEvents() {
     //     chatFab.style.display = '';
     //   }
     // }
-    chatFab.style.display = chatDrawer.classList.contains('open') ? 'none' : 'flex';
+    syncChatFabVisibility();
   });
 }
 
@@ -931,4 +1062,111 @@ if ('serviceWorker' in navigator) {
 
 
 /* ── Kick off ─────────────────────────────────────────────────── */
-document.addEventListener('DOMContentLoaded', init);
+document.addEventListener('DOMContentLoaded', () => {
+  init().catch(err => {
+    console.error('[Saidi] init failed:', err);
+  });
+});
+
+/* ================================================================
+   HABITS
+================================================================ */
+let habits = []; // Will eventually come from Postgres API
+
+const habitInput = document.getElementById('habit-input');
+const habitType = document.getElementById('habit-type');
+const habitQuota = document.getElementById('habit-quota');
+const addHabitBtn = document.getElementById('add-habit-btn');
+const habitList = document.getElementById('habit-list');
+
+function addHabit() {
+  const name = habitInput.value.trim();
+  const type = habitType.value;
+  const quota = parseInt(habitQuota.value, 10) || 1;
+
+  if (!name) return;
+
+  const newHabit = {
+    id: crypto.randomUUID(),
+    name: name,
+    type: type,
+    daily_quota: quota,
+    today_completions: 0,
+    history: generateMockHistory() // Placeholder for past 7 days data
+  };
+
+  habits.unshift(newHabit);
+  renderHabits();
+  
+  habitInput.value = '';
+  habitQuota.value = '1';
+}
+
+function logHabit(id) {
+  const habit = habits.find(h => h.id === id);
+  if (habit && habit.today_completions < habit.daily_quota) {
+    habit.today_completions++;
+    renderHabits();
+    // In future: send API request to backend here
+  }
+}
+
+function renderHabits() {
+  if (!habitList) return;
+  habitList.innerHTML = '';
+
+  habits.forEach(habit => {
+    const li = document.createElement('li');
+    li.className = 'task-item habit-card';
+
+    // Generate Quota Dots
+    let dotsHtml = '';
+    for (let i = 0; i < habit.daily_quota; i++) {
+      const filled = i < habit.today_completions ? 'filled' : '';
+      dotsHtml += `<div class="quota-dot ${filled}"></div>`;
+    }
+
+    // Generate Mini Grid (showing last 7 days for now to fit mobile cleanly)
+    let gridHtml = '';
+    habit.history.forEach(day => {
+      let cellClass = '';
+      let icon = '-';
+      if (day.status === 'pass') { cellClass = 'pass'; icon = '✓'; }
+      if (day.status === 'fail') { cellClass = 'fail'; icon = '✕'; }
+      gridHtml += `<div class="habit-day-cell ${cellClass}">${icon}</div>`;
+    });
+
+    li.innerHTML = `
+      <div class="habit-header">
+        <div class="habit-title-row">
+          <span class="habit-type-badge badge-${habit.type}">${habit.type}</span>
+          <span class="task-text" style="font-weight: 600;">${escapeHtml(habit.name)}</span>
+        </div>
+        <div class="habit-controls">
+          <div class="quota-dots">${dotsHtml}</div>
+          <button class="btn-log-habit" onclick="logHabit('${habit.id}')">+ Log</button>
+        </div>
+      </div>
+      <div class="habit-month-grid">
+        ${gridHtml}
+      </div>
+    `;
+    
+    habitList.appendChild(li);
+  });
+}
+
+// Temporary helper to show grid UI
+function generateMockHistory() {
+  const statuses = ['pass', 'fail', 'none'];
+  return Array.from({length: 7}, () => ({ 
+    status: statuses[Math.floor(Math.random() * statuses.length)] 
+  }));
+}
+
+if (addHabitBtn) {
+  addHabitBtn.addEventListener('click', addHabit);
+  habitInput.addEventListener('keydown', e => {
+    if (e.key === 'Enter') addHabit();
+  });
+}

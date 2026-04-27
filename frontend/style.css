@@ -1335,3 +1335,101 @@ body.light-mode .nav-item:hover { background: rgba(0,0,0,0.05); }
     background: rgba(0,0,0,0.2); /* Lighter dimming for desktop */
   }
 }
+
+
+/* ── HABIT TRACKER SPECIFICS ── */
+.habit-card {
+  flex-direction: column;
+  align-items: stretch;
+  gap: 1rem;
+  padding: 1.25rem;
+}
+
+.habit-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 1rem;
+}
+
+.habit-title-row {
+  display: flex;
+  align-items: center;
+  gap: 0.6rem;
+  min-width: 0;
+}
+
+.habit-type-badge {
+  font-size: 0.65rem;
+  padding: 2px 8px;
+  border-radius: var(--r-full);
+  text-transform: uppercase;
+  font-weight: 700;
+  letter-spacing: 0.05em;
+  flex-shrink: 0;
+}
+.badge-tracker { background: rgba(16, 185, 129, 0.15); color: var(--clr-green); }
+.badge-breaker { background: rgba(239, 68, 68, 0.15); color: #ef4444; }
+
+.habit-controls {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+}
+
+.quota-dots {
+  display: flex;
+  gap: 4px;
+}
+
+.quota-dot {
+  width: 14px; height: 14px;
+  border-radius: var(--r-full);
+  border: 2px solid var(--clr-text-dim);
+  transition: background var(--t-fast), border-color var(--t-fast);
+}
+.quota-dot.filled {
+  background: var(--clr-green);
+  border-color: var(--clr-green);
+}
+
+.btn-log-habit {
+  background: var(--glass-bg);
+  border: 1px solid var(--clr-border);
+  color: var(--clr-text);
+  padding: 6px 12px;
+  border-radius: var(--r-md);
+  cursor: pointer;
+  font-size: 0.8125rem;
+  font-weight: 500;
+  transition: all var(--t-fast);
+}
+.btn-log-habit:hover { 
+  background: var(--clr-green-glow); 
+  color: var(--clr-green); 
+  border-color: rgba(16, 185, 129, 0.4); 
+}
+
+/* Monthly Mini-Grid */
+.habit-month-grid {
+  display: grid;
+  grid-template-columns: repeat(7, 1fr);
+  gap: 4px;
+  margin-top: 0.5rem;
+  padding-top: 1rem;
+  border-top: 1px dashed rgba(255, 255, 255, 0.1);
+}
+
+.habit-day-cell {
+  aspect-ratio: 1;
+  border-radius: 6px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 0.75rem;
+  font-weight: 800;
+  background: rgba(255, 255, 255, 0.03);
+  color: var(--clr-text-dim);
+}
+.habit-day-cell.pass { color: var(--clr-green); background: rgba(16, 185, 129, 0.1); }
+.habit-day-cell.fail { color: #ef4444; background: rgba(239, 68, 68, 0.1); }
