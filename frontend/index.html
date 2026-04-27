@@ -15,14 +15,22 @@
   <link rel="shortcut icon" href="icons/Logo.jpeg">
   <link rel="apple-touch-icon" href="icons/Logo.jpeg">
 
-  <title>Saidi</title>
+  <title>MySaidi</title>
 
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-  <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Lora:ital,wght@0,400;0,600;1,400&display=swap">
+  <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;500;600;700;800&family=DM+Sans:ital,opsz,wght@0,9..40,300;0,9..40,400;0,9..40,500;0,9..40,600;1,9..40,400&display=swap">
   <link rel="stylesheet" href="style.css">
 </head>
 <body>
+
+  <!-- Animated aurora background -->
+  <div class="bg-canvas" aria-hidden="true">
+    <div class="bg-orb bg-orb-1"></div>
+    <div class="bg-orb bg-orb-2"></div>
+    <div class="bg-orb bg-orb-3"></div>
+    <div class="bg-grid"></div>
+  </div>
 
   <!--
     ╔══════════════════════════════════════════════════════╗
@@ -35,20 +43,17 @@
 
     <!-- ─────────────────────────────────────────────────
          LEFT SIDEBAR
-         - Visible on desktop; slides in as overlay on mobile
     ───────────────────────────────────────────────────── -->
     <nav id="sidebar" class="sidebar" aria-label="Main navigation">
 
       <div class="sidebar-header">
         <div class="brand">
             <img src="icons/Logo.jpeg" alt="Saidi logo" class="brand-logo">
-            <span class="brand-name">Saidi</span>
+            <span class="brand-name">MySaidi</span>
         </div>
-        <!-- Close button — mobile only -->
         <button class="sidebar-close" id="sidebar-close-btn" aria-label="Close sidebar">✕</button>
       </div>
 
-      <!-- Primary nav -->
       <ul class="nav-list" role="list">
         <li class="nav-item active" data-view="dashboard">
           <span class="nav-icon" aria-hidden="true">📋</span>
@@ -66,10 +71,8 @@
           <span class="nav-icon" aria-hidden="true">🔒</span>
           <span class="nav-label">Private</span>
         </li>
-
       </ul>
 
-      <!-- Bottom nav (settings etc.) -->
       <div class="sidebar-footer">
         <div class="nav-item" data-view="settings">
           <span class="nav-icon" aria-hidden="true">⚙️</span>
@@ -79,16 +82,14 @@
 
     </nav>
 
-    <!-- Backdrop — closes sidebar on mobile tap-outside -->
     <div id="sidebar-overlay" class="sidebar-overlay" aria-hidden="true"></div>
 
 
     <!-- ─────────────────────────────────────────────────
-         MAIN CONTENT — Tasks
+         MAIN CONTENT
     ───────────────────────────────────────────────────── -->
     <main class="main-content">
 
-      <!-- Top bar: hamburger (mobile) + page title + chat button (mobile) -->
       <header class="topbar">
         <button class="hamburger" id="hamburger-btn" aria-label="Open sidebar" aria-expanded="false">
           <span></span>
@@ -100,13 +101,6 @@
           <h1 id="view-title">Today's Tasks</h1>
           <p id="date-line" class="date-line">Loading...</p>
         </div>
-
-        <!-- Opens chat drawer on mobile; hidden on desktop (chat panel is always visible) -->
-        <!-- <button class="topbar-chat-btn" id="topbar-chat-btn" aria-label="Open Saidi chat">
-          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
-            <path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"></path>
-          </svg>
-        </button> -->
       </header>
 
       <!-- ── Dashboard view ── -->
@@ -114,38 +108,38 @@
         <h2 id="tasks-heading" class="sr-only">Task list</h2>
 
         <div class="tasks-card">
-        <div class="add-task-form" style="display: flex; flex-direction: column; gap: 0.5rem;">
-          <input
-            type="text"
-            id="task-input"
-            class="task-input-field"
-            placeholder="Add a task..."
-            autocomplete="off"
-            maxlength="200"
-            aria-label="New task"
-            required
-          >
-          <div style="display: flex; gap: 0.5rem;">
-            <input type="datetime-local" id="task-start" class="task-input-field" required>
-            <input type="datetime-local" id="task-end" class="task-input-field">
-            <button class="btn-add" id="add-task-btn">Add</button>
+          <div class="add-task-form">
+            <input
+              type="text"
+              id="task-input"
+              class="task-input-field"
+              placeholder="What needs to be done?"
+              autocomplete="off"
+              maxlength="200"
+              aria-label="New task"
+              required
+            >
+            <div class="task-form-row">
+              <input type="datetime-local" id="task-start" class="task-input-field" required>
+              <input type="datetime-local" id="task-end" class="task-input-field">
+              <button class="btn-add" id="add-task-btn">Add</button>
+            </div>
+          </div>
+
+          <div class="filter-tabs" role="tablist" aria-label="Filter tasks">
+            <button class="filter-btn active" data-filter="all"    role="tab" aria-selected="true">All</button>
+            <button class="filter-btn"         data-filter="active" role="tab" aria-selected="false">Active</button>
+            <button class="filter-btn"         data-filter="done"   role="tab" aria-selected="false">Done</button>
+          </div>
+
+          <ul id="task-list" class="task-list" role="list" aria-label="Tasks"></ul>
+
+          <div id="empty-state" class="empty-state" hidden aria-live="polite">
+            <span class="empty-icon" aria-hidden="true">🌱</span>
+            <p class="empty-title">You're all set!</p>
+            <p class="empty-hint">Add something above and let's get moving.</p>
           </div>
         </div>
-
-        <div class="filter-tabs" role="tablist" aria-label="Filter tasks">
-          <button class="filter-btn active" data-filter="all"    role="tab" aria-selected="true">All</button>
-          <button class="filter-btn"         data-filter="active" role="tab" aria-selected="false">Active</button>
-          <button class="filter-btn"         data-filter="done"   role="tab" aria-selected="false">Done</button>
-        </div>
-
-        <ul id="task-list" class="task-list" role="list" aria-label="Tasks"></ul>
-
-        <div id="empty-state" class="empty-state" hidden aria-live="polite">
-          <span class="empty-icon" aria-hidden="true">🌱</span>
-          <p class="empty-title">You're all set!</p>
-          <p class="empty-hint">Add something above and let's get moving.</p>
-        </div>
-        </div><!-- /tasks-card -->
       </section>
 
       <!-- ── Calendar view ── -->
@@ -156,7 +150,9 @@
             <h2 class="cal-month-label" id="cal-month-label"></h2>
             <button class="cal-nav-btn" id="cal-next" aria-label="Next month">&#8250;</button>
           </div>
-          <div class="cal-grid" id="cal-grid"></div>
+          <div class="cal-grid-wrapper">
+            <div class="cal-grid" id="cal-grid"></div>
+          </div>
         </div>
       </section>
 
@@ -179,24 +175,26 @@
         </div>
       </section>
 
-      <!--Habit tracker-->
+      <!-- ── Habit Tracker ── -->
       <section id="view-habits" class="view-section tasks-area" aria-labelledby="habits-heading">
         <h2 id="habits-heading" class="sr-only">Habit Tracker</h2>
 
         <div class="tasks-card">
-          <div class="add-task-form">
+          <div class="add-task-form habit-add-form">
             <input type="text" id="habit-input" class="task-input-field" placeholder="Build a new habit..." autocomplete="off">
-            <select id="habit-type" class="task-input-field" style="max-width: 110px; cursor: pointer;">
-              <option value="tracker">Tracker</option>
-              <option value="breaker">Breaker</option>
-            </select>
-            <input type="number" id="habit-quota" class="task-input-field" placeholder="Quota" min="1" value="1" style="max-width: 80px;" title="Daily Quota">
-            <button class="btn-add" id="add-habit-btn" aria-label="Add habit">
-              <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" aria-hidden="true">
-                <line x1="12" y1="5" x2="12" y2="19"></line>
-                <line x1="5" y1="12" x2="19" y2="12"></line>
-              </svg>
-            </button>
+            <div class="task-form-row">
+              <select id="habit-type" class="task-input-field habit-select">
+                <option value="tracker">Tracker</option>
+                <option value="breaker">Breaker</option>
+              </select>
+              <input type="number" id="habit-quota" class="task-input-field habit-quota" placeholder="Quota" min="1" value="1" title="Daily Quota">
+              <button class="btn-add" id="add-habit-btn" aria-label="Add habit">
+                <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" aria-hidden="true">
+                  <line x1="12" y1="5" x2="12" y2="19"></line>
+                  <line x1="5" y1="12" x2="19" y2="12"></line>
+                </svg>
+              </button>
+            </div>
           </div>
 
           <ul id="habit-list" class="task-list" role="list" aria-label="Habits"></ul>
@@ -211,34 +209,16 @@
         </div>
       </section>
 
-
-      </div>
-
     </main>
-
-
-    <!-- ─────────────────────────────────────────────────
-         RIGHT CHAT PANEL — desktop only
-         On mobile this panel is hidden; chat goes to drawer
-    ───────────────────────────────────────────────────── -->
 
   </div><!-- /app-shell -->
 
 
-  <!--
-    ╔══════════════════════════════════════════════════════╗
-    ║  MOBILE CHAT — Bottom Drawer                        ║
-    ║  Hidden on desktop via CSS.                         ║
-    ║  Slides up from bottom when user taps FAB or topbar ║
-    ╚══════════════════════════════════════════════════════╝
-  -->
-
-  <!-- Backdrop dims the page while drawer is open -->
+  <!-- Mobile Chat Drawer -->
   <div id="drawer-backdrop" class="drawer-backdrop" aria-hidden="true"></div>
 
   <div id="chat-drawer" class="chat-drawer" aria-hidden="true" role="dialog" aria-label="Chat with Saidi">
 
-    <!-- Drag handle / tap to collapse -->
     <div class="drawer-handle-bar" id="drawer-handle" aria-label="Toggle chat">
       <div class="handle-pill"></div>
     </div>
@@ -247,7 +227,7 @@
       <div class="saidi-avatar small" aria-hidden="true">
         <svg width="28" height="28" viewBox="0 0 28 28" fill="none">
           <circle cx="14" cy="14" r="14" fill="#10b981"/>
-          <text x="14" y="19" text-anchor="middle" font-size="13" font-weight="700" fill="#fff" font-family="Inter,sans-serif">S</text>
+          <text x="14" y="19" text-anchor="middle" font-size="13" font-weight="700" fill="#fff" font-family="Outfit,sans-serif">S</text>
         </svg>
       </div>
       <div class="saidi-meta">
@@ -260,17 +240,16 @@
       <button class="drawer-close-btn" id="drawer-close-btn" aria-label="Close chat">✕</button>
     </div>
 
-    <!-- Drawer messages — synced with desktop panel via JS -->
     <div id="drawer-messages" class="chat-messages drawer-messages" role="log" aria-live="polite">
       <div class="message saidi">
         <div class="msg-avatar" aria-hidden="true">
           <svg width="24" height="24" viewBox="0 0 24 24" fill="none">
             <circle cx="12" cy="12" r="12" fill="#10b981"/>
-            <text x="12" y="16" text-anchor="middle" font-size="11" font-weight="700" fill="#fff" font-family="Inter,sans-serif">S</text>
+            <text x="12" y="16" text-anchor="middle" font-size="11" font-weight="700" fill="#fff" font-family="Outfit,sans-serif">S</text>
           </svg>
         </div>
         <div class="msg-bubble">
-          Mambo, Calvin! 👋 Ready to tackle the day? Add a task up there or just ask me anything!
+          Hello Sir. Ready to tackle the day?
         </div>
       </div>
     </div>
@@ -295,7 +274,7 @@
 
   </div><!-- /chat-drawer -->
 
-  <!-- Floating Action Button — opens chat drawer on mobile -->
+  <!-- Floating Action Button -->
   <button id="chat-fab" class="chat-fab" aria-label="Open Saidi chat">
     <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
       <path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"></path>
