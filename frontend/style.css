@@ -421,6 +421,8 @@ body[data-font="system"] .msg-bubble {
 
 /* ── Sidebar header ── */
 .sidebar-header {
+  padding-top: env(safe-area-inset-top);
+  height: calc(var(--topbar-h) + env(safe-area-inset-top));
   display: flex;
   align-items: center;
   justify-content: space-between;
@@ -573,7 +575,7 @@ body[data-font="system"] .nav-label {
 }
 
 /* ── Topbar ── */
-.topbar {
+/* .topbar {
   height: var(--topbar-h);
   display: flex;
   align-items: center;
@@ -584,6 +586,26 @@ body[data-font="system"] .nav-label {
   background-color:        rgba(17, 25, 40, 0.70);
   backdrop-filter:         blur(16px) saturate(180%);
   -webkit-backdrop-filter: blur(16px) saturate(180%);
+} */
+
+.topbar {
+  /* Keep your existing height or change to min-height */
+  min-height: var(--topbar-h); 
+  height: auto; 
+  
+  /* Add padding to push content below the notch/status bar */
+  padding-top: env(safe-area-inset-top); 
+  
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  padding-left: 1.5rem;
+  padding-right: 1.5rem;
+  
+  /* Rest of your existing glassmorphism styles... */
+  border-bottom: 1px solid rgba(255,255,255,0.06);
+  background-color: rgba(17, 25, 40, 0.70);
+  backdrop-filter: blur(16px) saturate(180%);
 }
 
 .hamburger {
@@ -672,7 +694,35 @@ body[data-font="system"] .nav-label {
   outline: none;
   transition: var(--t-ui);
   min-width: 0;
+  min-height: 48px;
+  display: flex;
+  align-items: center;
 }
+
+/* Force the internal text (placeholder/mask) to be visible on iOS */
+input[type="date"]::-webkit-datetime-edit,
+input[type="datetime-local"]::-webkit-datetime-edit,
+input[type="time"]::-webkit-datetime-edit {
+  color: var(--text-muted) !important;
+  display: inline-block;
+  padding: 0;
+}
+
+/* Ensure the text is visible even when the field is not focused */
+input[type="date"]:not(:focus):empty,
+input[type="datetime-local"]:not(:focus):empty {
+  color: var(--text-muted) !important;
+}
+
+/* Prevent iOS from making the background white on click */
+input:-webkit-autofill,
+input:-webkit-autofill:hover,
+input:-webkit-autofill:focus {
+  -webkit-text-fill-color: var(--text);
+  -webkit-box-shadow: 0 0 0px 1000px var(--surface-2) inset;
+  transition: background-color 5000s ease-in-out 0s;
+}
+
 .task-input-field::placeholder { color: var(--text-muted); }
 .task-input-field:focus {
   background: rgba(255, 255, 255, 0.07);
