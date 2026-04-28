@@ -1,9 +1,11 @@
 # type: ignore
+from math import e
 import os
 import uuid
 from datetime import datetime
 import pytz
-from typing import Annotated, TypedDict, Any
+from typing import Annotated, TypedDict, Any, Optional
+from pydantic import BaseModel, Field
 
 from langchain_core.messages import SystemMessage, BaseMessage, AIMessage
 from langchain_core.tools import tool
@@ -12,23 +14,23 @@ from langchain_groq import ChatGroq
 from langgraph.graph import StateGraph, START, END
 from langgraph.graph.message import add_messages
 from langgraph.prebuilt import ToolNode
+from langchain_core.prompts import PromptTemplate
+
+# Define the Structured Output Schema
+class SemanticIntent(BaseModel):
+    category: str = Field(description="Must be one of: 'direct_command', 'implicit_event', 'general_chat'")
+    confidence: float = Field(description="Confidence score from 0.0 to 1.0")
+    detected_subject: Optional[str] = Field(description="The core topic, e.g., 'Data Science Exam' or 'Gym'")
+    detected_time: Optional[str] = Field(description="Any time reference, e.g., 'next Thursday at 10am'")
+    requires_proactive_offer: bool = Field(description="True if Saidi should offer to add this to the calendar/tracker")
 
 # --- State Definition ---
 class AgentState(TypedDict):
     messages: Annotated[list[BaseMessage], add_messages]
     clarification_requested: bool
+    extracted_intent: Optional[SemanticIntent] # this state holds the parse intent
 
 # --- Database Tools ---
-# We use RunnableConfig to pass the FastAPI db_pool into the tools without globals.
-
-
-# def _pool_from_config(config: RunnableConfig | None):
-#     if not config or not isinstance(config, dict):
-#         return None
-#     configurable = config.get("configurable")
-#     if not isinstance(configurable, dict):
-#         return None
-#     return configurable.get("db_pool")
 def _pool_from_config(config: RunnableConfig | None):
     if not config:
         print("[Saidi-Tools] Config is entirely missing.")
@@ -43,6 +45,31 @@ def _pool_from_config(config: RunnableConfig | None):
         return None
         
     return pool
+
+# Unindented parse_datatime funtion to be used by the manage_calendar tool
+def parse_datetime(dt_str: str | None) -> datetime | None:
+    if not dt_str:
+        return None
+    try:
+        # Try standard ISO format first
+        return datetime.fromisoformat(dt_str.replace('Z', '+00:00'))
+    except ValueError:
+        try:
+            # Handle formats like "5:00 PM" by combining with today's date
+            today = datetime.now(pytz.timezone("Africa/Nairobi")).date()
+            # Try 12-hour format
+            time_obj = datetime.strptime(dt_str.strip(), "%I:%M %p").time()
+            dt = datetime.combine(today, time_obj)
+            return pytz.timezone("Africa/Nairobi").localize(dt)
+        except ValueError:
+            try:
+                # Try 24-hour format "17:00"
+                time_obj = datetime.strptime(dt_str.strip(), "%H:%M").time()
+                dt = datetime.combine(today, time_obj)
+                return pytz.timezone("Africa/Nairobi").localize(dt)
+            except ValueError:
+                print(f"[Saidi] Could not parse date string: {dt_str}")
+                return None
 
 @tool
 async def manage_calendar(
@@ -112,29 +139,6 @@ async def manage_calendar(
             return f"Success: Updated event id={target_id}" if not result.endswith("0") else f"Error: No event found with id={target_id}."
         
     return "Error: Action must be add, update, or remove."
-def parse_datetime(dt_str: str | None) -> datetime | None:
-        if not dt_str:
-            return None
-        try:
-            # Try standard ISO format first
-            return datetime.fromisoformat(dt_str.replace('Z', '+00:00'))
-        except ValueError:
-            try:
-                # Handle formats like "5:00 PM" by combining with today's date
-                today = datetime.now(pytz.timezone("Africa/Nairobi")).date()
-                # Try 12-hour format
-                time_obj = datetime.strptime(dt_str.strip(), "%I:%M %p").time()
-                dt = datetime.combine(today, time_obj)
-                return pytz.timezone("Africa/Nairobi").localize(dt)
-            except ValueError:
-                try:
-                    # Try 24-hour format "17:00"
-                    time_obj = datetime.strptime(dt_str.strip(), "%H:%M").time()
-                    dt = datetime.combine(today, time_obj)
-                    return pytz.timezone("Africa/Nairobi").localize(dt)
-                except ValueError:
-                    print(f"[Saidi] Could not parse date string: {dt_str}")
-                    return None
 
 @tool
 async def log_habit_progress(habit_id: str, completions: int, config: RunnableConfig) -> str:
@@ -189,17 +193,32 @@ def request_clarification(question_text: str) -> str:
 
 tools = [manage_calendar, get_schedule, log_habit_progress, request_clarification]
 
-# --- Agent Node ---
+# --- Agent Node & Extraction Chain ---
 GROQ_API_KEY = os.environ.get("GROQ_API_KEY")
+
 if GROQ_API_KEY:
     llm = ChatGroq(
         api_key=GROQ_API_KEY,
         model=os.environ.get("GROQ_MODEL", "llama-3.3-70b-versatile"),
         temperature=0,
     ).bind_tools(tools)
+
+    # Setup for intent parser
+    intent_extractor = llm.with_structured_output(SemanticIntent)
+    extraction_prompt = PromptTemplate.from_template(
+        """Analyze the user input. 
+        If they explicitly command an action (e.g., 'Add a meeting'), category is 'direct_command'.
+        If they mention a future event or obligation casually (e.g., 'I have an exam on Tuesday'), category is 'implicit_event' and requires_proactive_offer is True.
+        If it is just conversation, category is 'general_chat'.
+        
+        User Input: {input}"""
+    )
+    extraction_chain = extraction_prompt | intent_extractor
 else:
     llm = None
+    extraction_chain = None
 
+#---System Prompt for Agent ---
 SYSTEM_PROMPT = """
 You are Saidi, Calvin's personal AI task assistant.
 Time: {current_time}
@@ -215,17 +234,15 @@ ONLY use `request_clarification` if a database action is completely blocked beca
 6. After calling a tool, summarize what you did in natural language. 
 7. NEVER just say "I've added it" if you haven't successfully called the tool and received a 'Success' response from the database.
 8. If the user asks to add a task, your FIRST and ONLY response must be a tool call to `manage_calendar`.
-9. When calling tools, always try to provide start_time and end_time in 24-hour format (HH:MM).
+9. 9. When calling tools, always calculate the correct date based on the current time. Provide start_time and end_time as strict ISO 8601 strings with timezone offsets (e.g., '2026-05-02T18:00:00+03:00'). DO NOT use simple HH:MM formats.
+
+{intent_context}
 """
 
+# --- Chat Endpoint Integration ---
 async def call_model(state: AgentState, config: RunnableConfig):
     messages = state["messages"]
 
-    # Force the system prompt to be the very first thing the model sees
-    current_time = datetime.now(pytz.timezone("Africa/Nairobi")).strftime("%A, %d %B %Y – %H:%M EAT")
-    sys_msg = SystemMessage(content=SYSTEM_PROMPT.format(current_time=current_time))
-
-    response = await llm.ainvoke([sys_msg] + messages, config)
     if llm is None:
         return {
             "messages": AIMessage(
@@ -234,6 +251,22 @@ async def call_model(state: AgentState, config: RunnableConfig):
             "clarification_requested": False,
         }
     
+    # Extract the parsed intent from state and feed it into the prompt so the LLM acts on it
+    intent_data = state.get("extracted_intent")
+    intent_context_str = ""
+    if intent_data:
+        intent_context_str = f"Parsed Intent - Category: {intent_data.category}, Detected Subject: {intent_data.detected_subject}, Detected Time: {intent_data.detected_time}, Requires Proactive Offer: {intent_data.requires_proactive_offer}"
+    else:
+        intent_context_str = "No clear intent detected yet."
+
+    # Force the system prompt to be the very first thing the model sees
+    current_time = datetime.now(pytz.timezone("Africa/Nairobi")).strftime("%A, %d %B %Y – %H:%M EAT")
+    sys_msg = SystemMessage(content=SYSTEM_PROMPT.format(
+        current_time=current_time,
+        intent_context=intent_context_str
+    ))
+
+    response = await llm.ainvoke([sys_msg] + messages, config)
     
     # Check if the model called request_clarification to flag state
     clarification = False
@@ -257,12 +290,26 @@ def should_continue(state: AgentState):
         
     return "tools"
 
+
+def parse_intent_node(state: AgentState):
+    user_message = state["messages"][-1].content
+
+    if extraction_chain is None:
+        return {"extracted_intent": None}
+    
+    intent_data = extraction_chain.invoke({"input": user_message})
+    
+    # Pass the structured data into the state for the next node to read
+    return {"extracted_intent": intent_data}
+
 # --- Graph Compilation ---
 workflow = StateGraph(AgentState)
+workflow.add_node("intent_parser", parse_intent_node)
 workflow.add_node("agent", call_model)
 workflow.add_node("tools", ToolNode(tools))
 
-workflow.add_edge(START, "agent")
+workflow.add_edge(START, "intent_parser")
+workflow.add_edge("intent_parser", "agent")
 workflow.add_conditional_edges("agent", should_continue, {"tools": "tools", END: END})
 workflow.add_edge("tools", "agent")
 

@@ -7,6 +7,9 @@
    Mobile-first → responsive desktop layout
 ================================================================ */
 * { font-family: inherit; }
+[hidden] {
+  display: none !important;
+}
 
 /* 2. Bolding Key Elements (scale with font choice) */
 .brand-name, 
@@ -398,6 +401,8 @@ body[data-font="system"] .msg-bubble {
 /* ── 6. SIDEBAR ────────────────────────────────────────────────── */
 .sidebar {
   width: var(--sidebar-w);
+  /* height: calc(var(--topbar-h)); */
+  padding-top: env(safe-area-inset-top);
   flex-shrink: 0;
   height: 100dvh;
   display: flex;
@@ -575,24 +580,10 @@ body[data-font="system"] .nav-label {
 }
 
 /* ── Topbar ── */
-/* .topbar {
-  height: var(--topbar-h);
-  display: flex;
-  align-items: center;
-  gap: 0.75rem;
-  padding: 0 1.5rem;
-  border-bottom: 1px solid rgba(255,255,255,0.06);
-  flex-shrink: 0;
-  background-color:        rgba(17, 25, 40, 0.70);
-  backdrop-filter:         blur(16px) saturate(180%);
-  -webkit-backdrop-filter: blur(16px) saturate(180%);
-} */
-
 .topbar {
   /* Keep your existing height or change to min-height */
-  min-height: var(--topbar-h); 
-  height: auto; 
-  
+  min-height: var(--topbar-h);  
+  height: calc(var(--topbar-h) + env(safe-area-inset-top));
   /* Add padding to push content below the notch/status bar */
   padding-top: env(safe-area-inset-top); 
   
@@ -700,18 +691,20 @@ body[data-font="system"] .nav-label {
 }
 
 /* Force the internal text (placeholder/mask) to be visible on iOS */
-input[type="date"]::-webkit-datetime-edit,
-input[type="datetime-local"]::-webkit-datetime-edit,
-input[type="time"]::-webkit-datetime-edit {
+input[type="date"].task-input-field,
+input[type="datetime-local"].task-input-field {
+  -webkit-appearance: none;
+  appearance: none;
   color: var(--text-muted) !important;
-  display: inline-block;
-  padding: 0;
+  min-height: 48px;
 }
 
-/* Ensure the text is visible even when the field is not focused */
-input[type="date"]:not(:focus):empty,
-input[type="datetime-local"]:not(:focus):empty {
-  color: var(--text-muted) !important;
+/* Change color to solid white when user selects a date or focuses */
+input[type="date"].task-input-field:valid,
+input[type="date"].task-input-field:focus,
+input[type="datetime-local"].task-input-field:valid,
+input[type="datetime-local"].task-input-field:focus {
+  color: var(--text) !important;
 }
 
 /* Prevent iOS from making the background white on click */
@@ -721,6 +714,19 @@ input:-webkit-autofill:focus {
   -webkit-text-fill-color: var(--text);
   -webkit-box-shadow: 0 0 0px 1000px var(--surface-2) inset;
   transition: background-color 5000s ease-in-out 0s;
+}
+
+/* Force the internal iOS wrapper to span the full height and width */
+input[type="date"]::-webkit-datetime-edit,
+input[type="datetime-local"]::-webkit-datetime-edit,
+input[type="date"]::-webkit-datetime-edit-fields-wrapper,
+input[type="datetime-local"]::-webkit-datetime-edit-fields-wrapper {
+  color: inherit !important;
+  display: flex;
+  align-items: center;
+  width: 100%;
+  padding: 0;
+  margin: 0;
 }
 
 .task-input-field::placeholder { color: var(--text-muted); }
@@ -1055,6 +1061,144 @@ input[type="datetime-local"]::-webkit-calendar-picker-indicator {
 .cal-day > div { width: 100%; overflow: hidden; }
 
 
+/* ── HOURLY DAY VIEW ────────────────────────────────────────── */
+.day-view-container {
+  display: flex;
+  flex-direction: column;
+  height: 100%;
+  padding: 1rem;
+}
+
+.day-view-header {
+  display: flex;
+  align-items: center;
+  gap: 1rem;
+  margin-bottom: 1rem;
+  padding-bottom: 0.75rem;
+  border-bottom: 1px solid rgba(255,255,255,0.06);
+}
+
+.btn-back-month {
+  padding: 0.5rem 1rem;
+  background: var(--glass-bg-light);
+  backdrop-filter: var(--glass-blur-sm);
+  border: 1px solid rgba(255,255,255,0.08);
+  border-radius: var(--r-md);
+  color: var(--text);
+  cursor: pointer;
+  font-weight: 600;
+  font-size: 0.9rem;
+  transition: all var(--t-fast);
+}
+
+.btn-back-month:hover {
+  background: var(--glass-bg);
+  border-color: rgba(16,185,129,0.3);
+}
+
+.day-view-title {
+  font-size: 1.3rem;
+  font-weight: 700;
+  color: var(--text);
+  margin: 0;
+  flex: 1;
+}
+
+.hours-scroll {
+  flex: 1;
+  overflow-y: auto;
+  overflow-x: hidden;
+  border-radius: var(--r-lg);
+  background: var(--glass-bg-light);
+  backdrop-filter: var(--glass-blur-sm);
+}
+
+.hours-grid {
+  display: flex;
+  flex-direction: column;
+  gap: 0.75rem;
+  padding: 1rem;
+  min-height: 100%;
+}
+
+.hour-slot {
+  display: flex;
+  gap: 0.75rem;
+  padding: 0.75rem;
+  border-radius: var(--r-md);
+  background: var(--glass-bg);
+  backdrop-filter: var(--glass-blur);
+  border: 1px solid rgba(255,255,255,0.08);
+  transition: all var(--t-fast);
+}
+
+.hour-slot.empty {
+  opacity: 0.5;
+}
+
+.hour-label {
+  min-width: 50px;
+  font-size: 0.85rem;
+  font-weight: 600;
+  color: var(--text-dim);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 0.5rem;
+  border-radius: var(--r-sm);
+  background: rgba(16,185,129,0.08);
+  flex-shrink: 0;
+}
+
+.hour-tasks {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+}
+
+.hour-task {
+  padding: 0.5rem 0.75rem;
+  background: rgba(16,185,129,0.15);
+  border-left: 3px solid var(--green);
+  border-radius: var(--r-sm);
+  font-size: 0.9rem;
+  color: var(--text);
+  font-weight: 600;
+  word-break: break-word;
+}
+
+body[data-font="cursive"] .hour-task {
+  font-size: 1.2rem;
+  font-family: 'Caveat', cursive;
+}
+
+/* Light mode overrides */
+body.light-mode .btn-back-month {
+  background: rgba(0,0,0,0.05);
+  border-color: rgba(0,0,0,0.08);
+  color: var(--text);
+}
+
+body.light-mode .btn-back-month:hover {
+  background: rgba(0,0,0,0.08);
+  border-color: rgba(0,0,0,0.15);
+}
+
+body.light-mode .day-view-title {
+  color: var(--text);
+}
+
+body.light-mode .hour-label {
+  background: rgba(16,185,129,0.12);
+  color: var(--text);
+}
+
+body.light-mode .hour-task {
+  background: rgba(16,185,129,0.1);
+}
+
+
 /* ── 10. SHARED CHAT COMPONENTS ──────────────────────────────── */
 .saidi-avatar {
   width: 36px; height: 36px;
@@ -1072,7 +1216,7 @@ input[type="datetime-local"]::-webkit-calendar-picker-indicator {
 .saidi-meta  { flex: 1; min-width: 0; overflow: hidden; }
 .saidi-name  {
   display: block;
-  font-family: 'Outfit', sans-serif;
+  font-family: var(--font-display);
   font-size: 0.9375rem;
   font-weight: 600;
   line-height: 1.2;
@@ -1231,7 +1375,7 @@ input[type="datetime-local"]::-webkit-calendar-picker-indicator {
   outline: none;
   color: var(--text);
   font-size: 0.875rem;
-  font-family: 'DM Sans', sans-serif;
+  font-family: var(--font-ui);
   padding: 0.25rem 0;
   min-width: 0;
 }
@@ -1690,10 +1834,13 @@ body.light-mode input[type="datetime-local"]::-webkit-calendar-picker-indicator 
   outline: none;
   color: var(--text);
   font-size: 0.9375rem;
-  font-family: 'DM Sans', sans-serif;
+  font-family: var(--font-ui);
   min-width: 0;
 }
-.ask-input::placeholder { color: var(--text-muted); }
+.ask-input::placeholder { 
+  color: var(--text-muted);
+  font-family: var(--font-display);
+}
 .ask-send-btn {
   width: 32px; height: 32px;
   flex-shrink: 0;
@@ -1801,4 +1948,15 @@ body.light-mode input[type="datetime-local"]::-webkit-calendar-picker-indicator 
     border-radius: var(--r-xl) var(--r-xl) 0 0;
   }
   .drawer-backdrop { background: rgba(2, 8, 20, 0.30); }
+}
+
+/* Force inputs to be at least 16px on mobile to prevent iOS auto-zoom */
+@media (max-width: 767px) {
+  input.task-input-field,
+  input.chat-input-field,
+  select.habit-select,
+  input.habit-quota,
+  input.ask-input {
+    font-size: 16px !important;
+  }
 }

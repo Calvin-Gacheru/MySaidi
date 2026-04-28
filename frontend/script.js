@@ -350,6 +350,89 @@ function renderCalendar() {
     html += `<div class="cal-day other-month">${d}</div>`;
 
   grid.innerHTML = html;
+
+  // Attach click handler to .cal-day elements for day view
+  document.querySelectorAll('.cal-day:not(.other-month)').forEach(dayEl => {
+    dayEl.addEventListener('click', () => {
+      const dayNum = parseInt(dayEl.querySelector('span')?.textContent, 10);
+      if (!isNaN(dayNum)) openDayView(dayNum, calendarDate);
+    });
+    dayEl.style.cursor = 'pointer';
+  });
+}
+
+/* ================================================================
+   HOURLY DAY VIEW
+================================================================ */
+function openDayView(day, refDate) {
+  // Build selected date
+  const year = refDate.getFullYear();
+  const month = refDate.getMonth();
+  const selectedDate = new Date(year, month, day);
+  
+  // Format title: "Friday, May 1"
+  const dayName = selectedDate.toLocaleDateString('en-KE', { weekday: 'long' });
+  const dateStr = selectedDate.toLocaleDateString('en-KE', { month: 'long', day: 'numeric' });
+  const title = `${dayName}, ${dateStr}`;
+  
+  // Hide month view, show day view
+  document.getElementById('calendar-container').hidden = true;
+  const dayViewContainer = document.getElementById('day-view-container');
+  dayViewContainer.hidden = false;
+  document.getElementById('day-view-title').textContent = title;
+  
+  renderHourlySlots(selectedDate);
+}
+
+function closeDayView() {
+  document.getElementById('calendar-container').hidden = false;
+  document.getElementById('day-view-container').hidden = true;
+}
+
+function renderHourlySlots(date) {
+  const hoursGrid = document.getElementById('hours-grid');
+  hoursGrid.innerHTML = '';
+  
+  // Create 24 hourly slots
+  for (let hour = 0; hour < 24; hour++) {
+    const hourSlot = document.createElement('div');
+    hourSlot.className = 'hour-slot empty';
+    
+    // Format: "09:00" or "14:00"
+    const timeStr = String(hour).padStart(2, '0') + ':00';
+    
+    // Filter tasks for this hour
+    const hourTasks = tasks.filter(t => {
+      if (t.done || !t.start_time) return false;
+      const taskDate = new Date(t.start_time);
+      if (Number.isNaN(taskDate.getTime())) return false;
+      return taskDate.getDate() === date.getDate() &&
+             taskDate.getMonth() === date.getMonth() &&
+             taskDate.getFullYear() === date.getFullYear() &&
+             taskDate.getHours() === hour;
+    });
+    
+    const hourLabel = document.createElement('div');
+    hourLabel.className = 'hour-label';
+    hourLabel.textContent = timeStr;
+    
+    const tasksContainer = document.createElement('div');
+    tasksContainer.className = 'hour-tasks';
+    
+    if (hourTasks.length > 0) {
+      hourSlot.classList.remove('empty');
+      hourTasks.forEach(task => {
+        const taskEl = document.createElement('div');
+        taskEl.className = 'hour-task';
+        taskEl.textContent = task.title || task.text || 'Untitled';
+        tasksContainer.appendChild(taskEl);
+      });
+    }
+    
+    hourSlot.appendChild(hourLabel);
+    hourSlot.appendChild(tasksContainer);
+    hoursGrid.appendChild(hourSlot);
+  }
 }
 
 
@@ -963,6 +1046,9 @@ function bindEvents() {
     calendarDate.setMonth(calendarDate.getMonth() + 1);
     renderCalendar();
   });
+
+  /* ── Day view navigation ── */
+  document.getElementById('btn-back-month')?.addEventListener('click', closeDayView);
 
   /* ── Settings ── */
   document.getElementById('light-mode-toggle')?.addEventListener('click', toggleLightMode);
