@@ -6,12 +6,9 @@
    Typography      : Outfit (display) · DM Sans (body)
    Mobile-first → responsive desktop layout
 ================================================================ */
-* {
-  font-family: 'Caveat', cursive !important;
-  font-size: 1.15rem;
-}
+* { font-family: inherit; }
 
-/* 2. Bolding Key Elements */
+/* 2. Bolding Key Elements (scale with font choice) */
 .brand-name, 
 .topbar-title h1, 
 .nav-label, 
@@ -19,23 +16,69 @@
 .btn-add,
 .saidi-name,
 .habit-title-row {
-  /* key things now use a heavy stroke and larger size */
-  font-weight: 700 !important;
-  font-size: 1.6rem !important;
+  font-weight: 700;
   letter-spacing: 0.03em;
 }
 
-/* 3. Task Specifics */
+body[data-font="cursive"] .brand-name,
+body[data-font="cursive"] .topbar-title h1,
+body[data-font="cursive"] .nav-label,
+body[data-font="cursive"] .task-text,
+body[data-font="cursive"] .btn-add,
+body[data-font="cursive"] .saidi-name,
+body[data-font="cursive"] .habit-title-row {
+  font-size: 1.6rem;
+}
+
+body[data-font="normal"] .brand-name,
+body[data-font="normal"] .topbar-title h1,
+body[data-font="normal"] .nav-label,
+body[data-font="normal"] .task-text,
+body[data-font="normal"] .btn-add,
+body[data-font="normal"] .saidi-name,
+body[data-font="normal"] .habit-title-row {
+  font-size: 1rem;
+}
+
+body[data-font="system"] .brand-name,
+body[data-font="system"] .topbar-title h1,
+body[data-font="system"] .nav-label,
+body[data-font="system"] .task-text,
+body[data-font="system"] .btn-add,
+body[data-font="system"] .saidi-name,
+body[data-font="system"] .habit-title-row {
+  font-size: 0.95rem;
+}
+
+/* 3. Task Specifics (scale with font choice) */
 .task-text {
-  /* ensures the actual content is the most readable part of the card */
-  font-size: 1.4rem !important;
   color: var(--text);
 }
 
-/* 4. Input and Button visibility */
+body[data-font="cursive"] .task-text {
+  font-size: 1.4rem;
+}
+
+body[data-font="normal"] .task-text,
+body[data-font="system"] .task-text {
+  font-size: 0.9rem;
+}
+
+/* 4. Input and Button visibility (scale with font choice) */
 .task-input-field, .chat-input-field {
-  font-size: 1.3rem !important;
-  font-weight: 600 !important;
+  font-weight: 600;
+}
+
+body[data-font="cursive"] .task-input-field,
+body[data-font="cursive"] .chat-input-field {
+  font-size: 1.3rem;
+}
+
+body[data-font="normal"] .task-input-field,
+body[data-font="normal"] .chat-input-field,
+body[data-font="system"] .task-input-field,
+body[data-font="system"] .chat-input-field {
+  font-size: 0.9rem;
 }
 
 /* ── 1. DESIGN TOKENS ──────────────────────────────────────────── */
@@ -80,6 +123,15 @@
   --text:         #e8f0ff;
   --text-muted:   rgba(255, 255, 255, 0.50);
   --text-dim:     rgba(255, 255, 255, 0.20);
+
+  /* ── Typography ── */
+  --font-normal:  'DM Sans', 'Outfit', sans-serif;
+  --font-cursive: 'Caveat', cursive;
+  --font-system:  system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+  --font-ui:      var(--font-cursive);
+  --font-display: var(--font-ui);
+  --font-size-body: 2.5rem;
+  --font-letter-spacing: 0.04em;
 
   /* ── Legacy aliases (keeps JS-generated inline styles intact) ── */
   --clr-base:       var(--bg);
@@ -129,12 +181,9 @@ html {
 }
 
 body {
-  /* Use Caveat as the primary font */
-  font-family: 'Caveat', cursive, sans-serif;
-  
-  /* Increase base size because handwritten fonts are naturally smaller */
-  font-size: 2.5rem; 
-  letter-spacing: 0.04em;
+  font-family: var(--font-ui);
+  font-size: var(--font-size-body);
+  letter-spacing: var(--font-letter-spacing);
   
   background-color: var(--bg);
   background-image:
@@ -150,28 +199,87 @@ body {
   -moz-osx-font-smoothing: grayscale;
 }
 
-/* Increase size for main navigation and brand */
-.brand-name, 
-.nav-item,
-.topbar-title h1 {
-  font-size: 1.4rem;
-  font-weight: 700;
+body[data-font="normal"] {
+  --font-ui: var(--font-normal);
+  --font-display: var(--font-ui);
+  --font-size-body: 1rem;
+  --font-letter-spacing: 0.01em;
 }
 
-/* Fix the inputs and buttons shown in your dashboard */
+body[data-font="cursive"] {
+  --font-ui: var(--font-cursive);
+  --font-display: var(--font-ui);
+  --font-size-body: 2.5rem;
+  --font-letter-spacing: 0.04em;
+}
+
+body[data-font="system"] {
+  --font-ui: var(--font-system);
+  --font-display: var(--font-ui);
+  --font-size-body: 1rem;
+  --font-letter-spacing: 0.01em;
+}
+
+/* Sidebar navigation — scale with font choice */
+.nav-item {
+  font-weight: 500;
+}
+
+body[data-font="cursive"] .nav-item {
+  font-size: 0.9rem;
+}
+
+body[data-font="normal"] .nav-item,
+body[data-font="system"] .nav-item {
+  font-size: 0.8rem;
+}
+
+/* Buttons and inputs — scale with font choice */
 .task-input-field, 
 .btn-add, 
 .filter-btn, 
 .chat-input-field {
-  font-size: 1.25rem;
   font-weight: 500;
 }
 
-/* Ensure the Saidi avatar and chat elements match */
+body[data-font="cursive"] .task-input-field,
+body[data-font="cursive"] .btn-add,
+body[data-font="cursive"] .filter-btn,
+body[data-font="cursive"] .chat-input-field {
+  font-size: 1.25rem;
+}
+
+body[data-font="normal"] .task-input-field,
+body[data-font="normal"] .btn-add,
+body[data-font="normal"] .filter-btn,
+body[data-font="normal"] .chat-input-field,
+body[data-font="system"] .task-input-field,
+body[data-font="system"] .btn-add,
+body[data-font="system"] .filter-btn,
+body[data-font="system"] .chat-input-field {
+  font-size: 0.875rem;
+}
+
+/* Chat elements — scale with font choice */
 .saidi-name, 
 .ask-input, 
 .msg-bubble {
+  font-weight: 500;
+}
+
+body[data-font="cursive"] .saidi-name,
+body[data-font="cursive"] .ask-input,
+body[data-font="cursive"] .msg-bubble {
   font-size: 1.15rem;
+}
+
+body[data-font="normal"] .saidi-name,
+body[data-font="normal"] .ask-input,
+body[data-font="normal"] .msg-bubble,
+body[data-font="system"] .saidi-name,
+body[data-font="system"] .ask-input,
+body[data-font="system"] .msg-bubble {
+  font-size: 0.9rem;
 }
 
 
@@ -341,7 +449,7 @@ body {
 }
 
 .brand-name {
-  font-family: 'Outfit', sans-serif;
+  font-family: var(--font-display);
   background: linear-gradient(135deg, var(--green-bright) 0%, var(--green) 60%);
   -webkit-background-clip: text;
   -webkit-text-fill-color: transparent;
@@ -417,9 +525,16 @@ body {
 }
 
 .nav-icon  { font-size: 1rem; flex-shrink: 0; width: 20px; text-align: center; }
-.nav-label { transition: opacity var(--t-normal); flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; font-weight: 700 !important;
-  font-size: 1.4rem !important;
-  letter-spacing: 0.03em;}
+.nav-label { transition: opacity var(--t-normal); flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; font-weight: 700; letter-spacing: 0.03em; }
+
+body[data-font="cursive"] .nav-label {
+  font-size: 1.4rem;
+}
+
+body[data-font="normal"] .nav-label,
+body[data-font="system"] .nav-label {
+  font-size: 0.875rem;
+}
 
 /* ── Sidebar footer ── */
 .sidebar-footer {
@@ -493,7 +608,7 @@ body {
 
 .topbar-title   { flex: 1; min-width: 0; overflow: hidden; }
 .topbar-title h1 {
-  font-family: 'Outfit', sans-serif;
+  font-family: var(--font-display);
   font-weight: 700 !important;
   font-size: 1.6rem !important;
   letter-spacing: 0.03em;
@@ -553,7 +668,7 @@ body {
   border-radius: var(--r-md);
   color: var(--text);
   font-size: 0.9rem;
-  font-family: 'DM Sans', sans-serif;
+  font-family: var(--font-ui);
   outline: none;
   transition: var(--t-ui);
   min-width: 0;
@@ -583,7 +698,7 @@ input[type="datetime-local"]::-webkit-calendar-picker-indicator {
   border: none;
   border-radius: var(--r-md);
   color: #fff;
-  font-family: 'DM Sans', sans-serif;
+  font-family: var(--font-ui);
   font-size: 0.875rem;
   font-weight: 600;
   cursor: pointer;
@@ -615,7 +730,7 @@ input[type="datetime-local"]::-webkit-calendar-picker-indicator {
   border: none;
   border-radius: var(--r-md);
   color: var(--text-muted);
-  font-family: 'DM Sans', sans-serif;
+  font-family: var(--font-ui);
   font-size: 0.8125rem;
   font-weight: 500;
   cursor: pointer;
@@ -756,7 +871,7 @@ input[type="datetime-local"]::-webkit-calendar-picker-indicator {
 .empty-state[hidden] { display: none !important; }
 .empty-icon  { font-size: 4rem; margin-bottom: 0.75rem; filter: drop-shadow(0 8px 20px rgba(16,185,129,0.30)); }
 .empty-title {
-  font-family: 'Outfit', sans-serif;
+  font-family: var(--font-display);
   font-size: 1.125rem;
   font-weight: 600;
   color: var(--text-muted);
@@ -1215,7 +1330,7 @@ input[type="datetime-local"]::-webkit-calendar-picker-indicator {
 /* ── 14. SETTINGS ───────────────────────────────────────────── */
 .settings-container { padding: 1.5rem; max-width: 520px; }
 .settings-heading {
-  font-family: 'Outfit', sans-serif;
+  font-family: var(--font-display);
   font-size: 1.0625rem;
   font-weight: 700;
   letter-spacing: -0.025em;
@@ -1242,6 +1357,31 @@ input[type="datetime-local"]::-webkit-calendar-picker-indicator {
 }
 .settings-row-title { font-size: 0.9375rem; font-weight: 500; margin-bottom: 2px; color: var(--text); }
 .settings-row-desc  { font-size: 0.8125rem; color: var(--text-muted); }
+
+.settings-control {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+}
+
+.settings-select {
+  height: 40px;
+  padding: 0 0.75rem;
+  border-radius: var(--r-md);
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  background: rgba(255, 255, 255, 0.04);
+  color: var(--text);
+  font-family: var(--font-ui);
+  font-size: 0.875rem;
+  cursor: pointer;
+  outline: none;
+  transition: var(--t-ui);
+}
+
+.settings-select:focus {
+  border-color: rgba(16, 185, 129, 0.45);
+  box-shadow: 0 0 0 3px rgba(16, 185, 129, 0.10), 0 2px 12px rgba(0,0,0,0.30);
+}
 
 .toggle-btn {
   position: relative;

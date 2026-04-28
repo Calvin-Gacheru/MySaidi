@@ -1,7 +1,7 @@
 {
-  "name": "Saidi — Your Kenyan AI Assistant",
-  "short_name": "Saidi",
-  "description": "Friendly, proactive AI task assistant for Calvin",
+  "name": "MySaidi — Your AI Assistant",
+  "short_name": "MySaidi",
+  "description": "Personalized AI assistant",
   "start_url": "/",
   "display": "standalone",
   "orientation": "portrait-primary",

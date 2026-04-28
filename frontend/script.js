@@ -198,6 +198,7 @@ const sidebarOverlay  = document.getElementById('sidebar-overlay');
 const sidebarCloseBtn = document.getElementById('sidebar-close-btn');
 const hamburgerBtn    = document.getElementById('hamburger-btn');
 const dateLine        = document.getElementById('date-line');
+const fontSelect      = document.getElementById('font-select');
 
 // Tasks
 const taskInput  = document.getElementById('task-input');
@@ -357,6 +358,15 @@ function renderCalendar() {
 ================================================================ */
 function loadSettings() {
   applyLightMode(localStorage.getItem('saidi_light_mode') === 'true');
+  const savedFont = localStorage.getItem('saidi_font') || 'cursive';
+  applyFontChoice(savedFont);
+}
+
+function applyFontChoice(font) {
+  const normalized = font === 'normal' || font === 'system' ? font : 'cursive';
+  document.body.dataset.font = normalized;
+  localStorage.setItem('saidi_font', normalized);
+  if (fontSelect) fontSelect.value = normalized;
 }
 
 function applyLightMode(on) {
@@ -956,6 +966,9 @@ function bindEvents() {
 
   /* ── Settings ── */
   document.getElementById('light-mode-toggle')?.addEventListener('click', toggleLightMode);
+  fontSelect?.addEventListener('change', event => {
+    applyFontChoice(event.target.value);
+  });
 
   /* ── Ask widget ── */
   const askInput = document.getElementById('ask-input');
