@@ -1,10 +1,12 @@
 # type: ignore
-from datetime import datetime, timezone
+from datetime import datetime, timezone, tzinfo
 from typing import Any
 from uuid import NAMESPACE_URL, UUID, uuid4, uuid5
-
+from fastapi import Depends
 from fastapi import APIRouter, HTTPException, Request
 from pydantic import BaseModel, Field
+from backend.auth import get_current_user_id
+import uuid
 
 router = APIRouter(prefix="/api/tasks", tags=["tasks"])
 
@@ -57,9 +59,17 @@ def _parse_task_uuid(raw_id: str) -> UUID:
 
 def _serialize_task(row: Any) -> dict[str, Any]:
     created_at = row["created_at"]
+    if created_at and created_at.tzinfo is None:
+        created_at = created_at.replace(tzinfo=timezone.utc)
+
     created_ms = int(created_at.timestamp() * 1000) if created_at else int(datetime.now(tz=timezone.utc).timestamp() * 1000)
     start_time = row["start_time"]
+    if start_time and start_time.tzinfo is None:
+        start_time = start_time.replace(tzinfo=timezone.utc)
+
     end_time = row["end_time"]
+    if end_time and end_time.tzinfo is None:
+        end_time = end_time.replace(tzinfo=timezone.utc)
 
     return {
         "id": str(row["id"]),
@@ -83,26 +93,28 @@ def _db_pool_or_503(request: Request):
     return pool
 
 
-async def _fetch_all_tasks(pool) -> list[dict[str, Any]]:
+async def _fetch_all_tasks(pool, user_id: str) -> list[dict[str, Any]]:
     async with pool.acquire() as conn:
         rows = await conn.fetch(
             """
             SELECT id, title, start_time, end_time, is_flexible, done, created_at
             FROM Tasks
+            WHERE user_id = $1
             ORDER BY COALESCE(start_time, created_at) DESC NULLS LAST, created_at DESC
-            """
+            """,
+            uuid.UUID(user_id)
         )
     return [_serialize_task(row) for row in rows]
 
 
 @router.get("")
-async def list_tasks(request: Request):
+async def list_tasks(request: Request, user_id: str = Depends(get_current_user_id)):
     pool = _db_pool_or_503(request)
-    return await _fetch_all_tasks(pool)
+    return await _fetch_all_tasks(pool, user_id)
 
 
 @router.post("")
-async def create_task(payload: TaskPayload, request: Request):
+async def create_task(payload: TaskPayload, request: Request, user_id: str = Depends(get_current_user_id)):
     title = payload.title.strip()
     if not title:
         raise HTTPException(status_code=400, detail="Task title is required.")
@@ -114,8 +126,8 @@ async def create_task(payload: TaskPayload, request: Request):
     async with pool.acquire() as conn:
         row = await conn.fetchrow(
             """
-            INSERT INTO Tasks (id, title, start_time, end_time, is_flexible, done, created_at)
-            VALUES ($1, $2, $3, $4, $5, $6, COALESCE($7, NOW()))
+            INSERT INTO Tasks (id, title, start_time, end_time, is_flexible, done, created_at, user_id)
+            VALUES ($1, $2, $3, $4, $5, $6, COALESCE($7, NOW()), $8)
             ON CONFLICT (id) DO UPDATE SET
                 title = EXCLUDED.title,
                 start_time = EXCLUDED.start_time,
@@ -131,49 +143,63 @@ async def create_task(payload: TaskPayload, request: Request):
             payload.is_flexible,
             payload.done,
             created_at,
+            uuid.UUID(user_id)
         )
 
     return _serialize_task(row)
 
 
 @router.patch("/{task_id}")
-async def update_task(task_id: str, payload: TaskPatchPayload, request: Request):
+async def update_task(task_id: str, payload: TaskPatchPayload, request: Request, user_id: str = Depends(get_current_user_id)):
     pool = _db_pool_or_503(request)
     parsed_task_id = _parse_task_uuid(task_id)
 
-    updates: list[str] = []
-    values: list[Any] = [parsed_task_id]
-
-    if payload.title is not None:
-        title = payload.title.strip()
-        if not title:
-            raise HTTPException(status_code=400, detail="Task title cannot be empty.")
-        updates.append(f"title = ${len(values) + 1}")
-        values.append(title)
-
-    if payload.start_time is not None:
-        updates.append(f"start_time = ${len(values) + 1}")
-        values.append(payload.start_time)
-
-    if payload.end_time is not None:
-        updates.append(f"end_time = ${len(values) + 1}")
-        values.append(payload.end_time)
-
-    if payload.is_flexible is not None:
-        updates.append(f"is_flexible = ${len(values) + 1}")
-        values.append(payload.is_flexible)
-
-    if payload.done is not None:
-        updates.append(f"done = ${len(values) + 1}")
-        values.append(payload.done)
-
-    if not updates:
+    update_data = payload.model_dump(exclude_unset=True)
+    if not update_data:
         raise HTTPException(status_code=400, detail="No task fields provided for update.")
+    
+    if "title" in update_data:
+        if not update_data["title"] or not update_data["title"].strip():
+            raise HTTPException(status_code=400, detail="Task title cannot be empty.")
+        update_data["title"] = update_data["title"].strip()
+
+    updates: list[str] = []
+    values: list[Any] = [parsed_task_id, uuid.UUID(user_id)]
+
+    for key, value in update_data.items():
+        updates.append(f"{key} = ${len(values) + 1}")
+        values.append(value)
+
+    # if payload.title is not None:
+    #     title = payload.title.strip()
+    #     if not title:
+    #         raise HTTPException(status_code=400, detail="Task title cannot be empty.")
+    #     updates.append(f"title = ${len(values) + 1}")
+    #     values.append(title)
+
+    # if payload.start_time is not None:
+    #     updates.append(f"start_time = ${len(values) + 1}")
+    #     values.append(payload.start_time)
+
+    # if payload.end_time is not None:
+    #     updates.append(f"end_time = ${len(values) + 1}")
+    #     values.append(payload.end_time)
+
+    # if payload.is_flexible is not None:
+    #     updates.append(f"is_flexible = ${len(values) + 1}")
+    #     values.append(payload.is_flexible)
+
+    # if payload.done is not None:
+    #     updates.append(f"done = ${len(values) + 1}")
+    #     values.append(payload.done)
+
+    # if not updates:
+    #     raise HTTPException(status_code=400, detail="No task fields provided for update.")
 
     query = f"""
         UPDATE Tasks
         SET {", ".join(updates)}
-        WHERE id = $1
+        WHERE id = $1 AND user_id = $2
         RETURNING id, title, start_time, end_time, is_flexible, done, created_at
     """
 
@@ -187,24 +213,26 @@ async def update_task(task_id: str, payload: TaskPatchPayload, request: Request)
 
 
 @router.delete("/{task_id}")
-async def delete_task(task_id: str, request: Request):
+async def delete_task(task_id: str, request: Request, user_id: str = Depends(get_current_user_id)):
     pool = _db_pool_or_503(request)
     parsed_task_id = _parse_task_uuid(task_id)
 
     async with pool.acquire() as conn:
-        result = await conn.execute("DELETE FROM Tasks WHERE id = $1", parsed_task_id)
+        result = await conn.execute("DELETE FROM Tasks WHERE id = $1 AND user_id = $2", parsed_task_id, uuid.UUID(user_id))
 
     if result.endswith("0"):
-        raise HTTPException(status_code=404, detail="Task not found.")
+        raise HTTPException(status_code=404, detail="Task not found or unauthorized.")
 
     return {"deleted": True, "id": str(parsed_task_id)}
 
 
 @router.post("/sync")
-async def sync_tasks(payload: TaskSyncPayload, request: Request):
+async def sync_tasks(request: Request, payload: TaskSyncPayload, user_id: str = Depends(get_current_user_id)):
     pool = _db_pool_or_503(request)
 
     normalized_ids: list[UUID] = []
+    user_uuid = uuid.UUID(user_id)
+
     async with pool.acquire() as conn:
         async with conn.transaction():
             for task in payload.tasks:
@@ -214,11 +242,12 @@ async def sync_tasks(payload: TaskSyncPayload, request: Request):
 
                 task_id = _task_uuid(task.id)
                 normalized_ids.append(task_id)
+                create_at = _millis_to_datetime(task.createdAt)
 
                 await conn.execute(
                     """
-                    INSERT INTO Tasks (id, title, start_time, end_time, is_flexible, done, created_at)
-                    VALUES ($1, $2, $3, $4, $5, $6, COALESCE($7, NOW()))
+                    INSERT INTO Tasks (id, title, start_time, end_time, is_flexible, done, created_at, user_id)
+                    VALUES ($1, $2, $3, $4, $5, $6, COALESCE($7, NOW()), $8)
                     ON CONFLICT (id) DO UPDATE SET
                         title = EXCLUDED.title,
                         start_time = EXCLUDED.start_time,
@@ -232,13 +261,14 @@ async def sync_tasks(payload: TaskSyncPayload, request: Request):
                     task.end_time,
                     task.is_flexible,
                     task.done,
-                    _millis_to_datetime(task.createdAt),
+                    create_at,
+                    user_uuid # Associate task with the user who created/updated it
                 )
 
             if payload.replace_existing:
                 if normalized_ids:
-                    await conn.execute("DELETE FROM Tasks WHERE id <> ALL($1::uuid[])", normalized_ids)
+                    await conn.execute("DELETE FROM Tasks WHERE user_id = $1 AND id <> ALL($2::uuid[])", user_uuid, normalized_ids)
                 else:
-                    await conn.execute("DELETE FROM Tasks")
+                    await conn.execute("DELETE FROM Tasks WHERE user_id = $1", user_uuid)
 
-    return await _fetch_all_tasks(pool)
+    return await _fetch_all_tasks(pool, user_id)

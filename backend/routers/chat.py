@@ -1,14 +1,12 @@
 # type: ignore
 import asyncio
+import uuid
 from datetime import datetime, timezone
 from typing import Any
 
 from fastapi import APIRouter, Request
-
-try:
-    from backend.schemas import ChatRequest
-except ModuleNotFoundError:
-    from schemas import ChatRequest
+from backend.schemas import ChatRequest
+from backend.auth import get_current_user_id
 
 router = APIRouter()
 
@@ -102,7 +100,12 @@ async def chat_endpoint(req: ChatRequest, request: Request):
         }
     
     # Inject the database pool into the LangGraph configuration
-    config = {"configurable": {"db_pool": getattr(request.app.state, "db_pool", None)}}
+    config = {
+        "configurable": {
+            "db_pool": getattr(request.app.state, "db_pool", None),
+            "user_id": user_id
+            }
+        }
     
     try:
         result = await asyncio.wait_for(

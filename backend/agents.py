@@ -31,20 +31,24 @@ class AgentState(TypedDict):
     extracted_intent: Optional[SemanticIntent] # this state holds the parse intent
 
 # --- Database Tools ---
-def _pool_from_config(config: RunnableConfig | None):
+def _get_context(config: RunnableConfig | None):
     if not config:
-        print("[Saidi-Tools] Config is entirely missing.")
-        return None
+        return None, None
         
     # LangGraph wraps configurations. We need to check both top-level and 'configurable'
     configurable = config.get("configurable", {})
     pool = configurable.get("db_pool")
-    
-    if pool is None:
-        print("[Saidi-Tools] db_pool not found in config. Current config:", config)
-        return None
-        
-    return pool
+    user_id_str = configurable.get("user_id")
+
+    if not user_id_str:
+        return pool, None
+
+    try:
+        user_id = uuid.UUID(str(user_id_str))
+        return pool, user_id
+    except ValueError:
+        print(f"[Saidi-Tools] Invalid user_id in config: {user_id_str}")
+        return pool, None
 
 # Unindented parse_datatime funtion to be used by the manage_calendar tool
 def parse_datetime(dt_str: str | None) -> datetime | None:
@@ -84,9 +88,9 @@ async def manage_calendar(
     id: str | None = None,
 ) -> str:
     """Add, update, or remove a calendar event. Action must be 'add', 'update', or 'remove'."""
-    pool = _pool_from_config(config)
-    if pool is None:
-        return "Error: Database is not configured. Set DATABASE_URL to enable calendar updates."
+    pool, user_id = _get_context(config)
+    if pool is None or user_id is None:
+        return "Error: Database is not configured or user ID is missing. Set DATABASE_URL and ensure user_id is passed in config to manage calendar."
     
     target_id = task_id or event_id or id
     normalized_start = parse_datetime(start_time)
@@ -98,12 +102,8 @@ async def manage_calendar(
                 return "Error: title is required for add."
             new_id = uuid.uuid4()
             await conn.execute(
-                "INSERT INTO Tasks (id, title, start_time, end_time, is_flexible) VALUES ($1, $2, $3, $4, $5)",
-                new_id,
-                title,
-                normalized_start,
-                normalized_end,
-                bool(is_flexible) if is_flexible is not None else False,
+                "INSERT INTO Tasks (id, title, start_time, end_time, is_flexible, user_id) VALUES ($1, $2, $3, $4, $5, $6)",
+                new_id, title, normalized_start, normalized_end, bool(is_flexible) if is_flexible is not None else False, user_id
             )
             return f"Success: Added event '{title}' (id={new_id})"
     
@@ -117,25 +117,26 @@ async def manage_calendar(
 
             
         if action == "remove":
-            result = await conn.execute("DELETE FROM Tasks WHERE id = $1", uuid.UUID)
+            result = await conn.execute("DELETE FROM Tasks WHERE id = $1 AND user_id = $2", uuid_obj, user_id)
             return f"Success: Removed event id={target_id}" if not result.endswith("0") else f"Error: No event found with id={target_id}"
 
         if action == "update":
             updates, args = [], []
             if title.strip():
-                updates.append(f"title = ${len(args) + 2}"); args.append(title)
+                updates.append(f"title = ${len(args) + 3}"); args.append(title)
             if start_time is not None:
-                updates.append(f"start_time = ${len(args) + 2}"); args.append(normalized_start)
+                updates.append(f"start_time = ${len(args) + 3}"); args.append(normalized_start)
             if end_time is not None:
-                updates.append(f"end_time = ${len(args) + 2}"); args.append(normalized_end)
+                updates.append(f"end_time = ${len(args) + 3}"); args.append(normalized_end)
             if is_flexible is not None:
-                updates.append(f"is_flexible = ${len(args) + 2}"); args.append(is_flexible)
+                updates.append(f"is_flexible = ${len(args) + 3}"); args.append(is_flexible)
 
             if not updates:
                 return "Error: No update fields provided."
 
-            query = f"UPDATE Tasks SET {', '.join(updates)} WHERE id = $1"
-            result = await conn.execute(query, uuid_obj, *args)
+            # $1 is task id, $2 is user_id. Values start at $3.
+            query = f"UPDATE Tasks SET {', '.join(updates)} WHERE id = $1 AND user_id = $2"
+            result = await conn.execute(query, uuid_obj, user_id, *args)
             return f"Success: Updated event id={target_id}" if not result.endswith("0") else f"Error: No event found with id={target_id}."
         
     return "Error: Action must be add, update, or remove."
@@ -143,8 +144,8 @@ async def manage_calendar(
 @tool
 async def log_habit_progress(habit_id: str, completions: int, config: RunnableConfig) -> str:
     """Log daily progress for a habit. Increments the completion count for today."""
-    pool = _pool_from_config(config)
-    if pool is None:
+    pool, user_id = _get_context(config)
+    if pool is None or user_id is None:
         return "Error: Database is not configured. Set DATABASE_URL to log habits."
 
     today = datetime.now(pytz.timezone("Africa/Nairobi")).date()
@@ -153,16 +154,16 @@ async def log_habit_progress(habit_id: str, completions: int, config: RunnableCo
         # Upsert logic for habit logging
         new_id = uuid.uuid4()
         await conn.execute('''
-            INSERT INTO HabitLogs (id, habit_id, date, completions) 
-            VALUES ($1, $2, $3, $4)
-        ''', new_id, uuid.UUID(habit_id), today, completions)
+            INSERT INTO HabitLogs (id, habit_id, date, completions, user_id) 
+            VALUES ($1, $2, $3, $4, $5)
+        ''', new_id, uuid.UUID(habit_id), today, completions, user_id)
         return f"Success: Logged {completions} completions for habit {habit_id} today."
 
 @tool
 async def get_schedule(config: RunnableConfig) -> str:
     """Read current active calender events and tasks"""
-    pool = _pool_from_config(config)
-    if pool is None:
+    pool, user_id = _get_context(config)
+    if pool is None or user_id is None:
         return "Error: Database is not configured."
     
     async with pool.acquire() as conn:
@@ -170,9 +171,10 @@ async def get_schedule(config: RunnableConfig) -> str:
             """
             SELECT id, title, start_time, end_time, is_flexible
             FROM Tasks
-            WHERE done = FALSE
+            WHERE user_id = $1 AND done = FALSE
             ORDER BY start_time ASC NULLS LAST
-            """
+            """,
+            user_id
         )
     if not rows:
         return "The schedule is currently empty"

@@ -107,6 +107,25 @@ function readLocalTaskCache() {
   }
 }
 
+async function fetchWithAuth(url, options = {}) {
+  const token = localStorage.getItem('saidi_token');
+
+  const headers = {
+    'Content-Type': 'application/json',
+    ...options.headers,
+    'Authorization': `Bearer ${token}` // MUST BE BACKTICKS ` `
+  };
+
+  const response = await fetch(url, { ...options, headers });
+
+  if (response.status === 401){
+    logout();
+    throw new Error("Session expired. Please log in again.");
+  }
+
+  return response;
+}
+
 async function readApiError(res) {
   try {
     const data = await res.json();
@@ -120,74 +139,44 @@ async function readApiError(res) {
 }
 
 async function fetchTasksFromBackend() {
-  const res = await fetch(API_TASKS);
-  if (!res.ok) {
-    throw new Error(await readApiError(res));
-  }
-
-  const data = await res.json();
-  return normalizeTaskList(data);
+  const res = await fetchWithAuth(API_TASKS);
+  if (!res.ok) throw new Error(await readApiError(res));
+  return normalizeTaskList(await res.json());
 }
 
 async function syncTasksToBackend(taskList) {
-  const payloadTasks = taskList
-    .map(toTaskApiPayload)
-    .filter(Boolean);
-
-  const res = await fetch(API_TASKS_SYNC, {
+  const payloadTasks = taskList.map(toTaskApiPayload).filter(Boolean);
+  const res = await fetchWithAuth(API_TASKS_SYNC, {
     method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({
-      tasks: payloadTasks,
-      replace_existing: false,
-    }),
+    body: JSON.stringify({ tasks: payloadTasks, replace_existing: false }),
   });
-
-  if (!res.ok) {
-    throw new Error(await readApiError(res));
-  }
-
-  const data = await res.json();
-  return normalizeTaskList(data);
+  if (!res.ok) throw new Error(await readApiError(res));
+  return normalizeTaskList(await res.json());
 }
 
 async function createTaskInBackend(taskPayload) {
-  const res = await fetch(API_TASKS, {
+  const res = await fetchWithAuth(API_TASKS, {
     method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify(taskPayload),
   });
-
-  if (!res.ok) {
-    throw new Error(await readApiError(res));
-  }
-
+  if (!res.ok) throw new Error(await readApiError(res));
   return res.json();
 }
 
 async function updateTaskInBackend(taskId, patch) {
-  const res = await fetch(`${API_TASKS}/${encodeURIComponent(taskId)}`, {
+  const res = await fetchWithAuth(`${API_TASKS}/${encodeURIComponent(taskId)}`, {
     method: 'PATCH',
-    headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify(patch),
   });
-
-  if (!res.ok) {
-    throw new Error(await readApiError(res));
-  }
-
+  if (!res.ok) throw new Error(await readApiError(res));
   return res.json();
 }
 
 async function deleteTaskInBackend(taskId) {
-  const res = await fetch(`${API_TASKS}/${encodeURIComponent(taskId)}`, {
+  const res = await fetchWithAuth(`${API_TASKS}/${encodeURIComponent(taskId)}`, {
     method: 'DELETE',
   });
-
-  if (!res.ok) {
-    throw new Error(await readApiError(res));
-  }
-
+  if (!res.ok) throw new Error(await readApiError(res));
   return res.json();
 }
 
@@ -229,8 +218,6 @@ const drawerHandle    = document.getElementById('drawer-handle');
 ================================================================ */
 async function init() {
   setDateLine();
-  await loadTasks();
-  renderTasks();
   setSidebarCloseIcon();
   loadSettings();
   bindEvents();
@@ -863,7 +850,7 @@ async function sendMessage(text) {
     .filter(Boolean);
 
   try {
-    const res = await fetch(API_CHAT, {
+    const res = await fetchWithAuth(API_CHAT, {
       method:  'POST',
       headers: { 'Content-Type': 'application/json' },
       body:    JSON.stringify({
@@ -1142,13 +1129,13 @@ function removeTaskProgrammatically(searchText) {
 /* ================================================================
    PWA — Service Worker registration
 ================================================================ */
-if ('serviceWorker' in navigator) {
-  window.addEventListener('load', () => {
-    navigator.serviceWorker
-      .register('/sw.js')
-      .catch(() => { /* SW is optional — silent fail */ });
-  });
-}
+// if ('serviceWorker' in navigator) {
+//   window.addEventListener('load', () => {
+//     navigator.serviceWorker
+//       .register('/sw.js')
+//       .catch(() => { /* SW is optional — silent fail */ });
+//   });
+// }
 
 
 /* ── Kick off ─────────────────────────────────────────────────── */
@@ -1260,3 +1247,108 @@ if (addHabitBtn) {
     if (e.key === 'Enter') addHabit();
   });
 }
+
+// LOGIN LOGIC
+// --- Authentication State Management ---
+const authLanding = document.getElementById('auth-landing');
+const appDashboard = document.getElementById('app-dashboard');
+const authError = document.getElementById('auth-error');
+
+// Check if user is already logged in on page load
+function checkAuth() {
+    const token = localStorage.getItem('saidi_token');
+    if (token) {
+        showDashboard();
+    }
+}
+
+function showDashboard() {
+    authLanding.style.display = 'none';
+    appDashboard.style.display = 'block';
+    // Call your existing function to load tasks here
+    loadTasks().then(() => {
+      renderTasks();
+    }); 
+}
+
+function logout() {
+    localStorage.removeItem('saidi_token');
+    appDashboard.style.display = 'none';
+    authLanding.style.display = 'flex';
+}
+
+document.getElementById('logout-btn')?.addEventListener('click', logout);
+
+// --- Form Toggling Logic ---
+let isLoginMode = true;
+document.getElementById('toggle-auth').addEventListener('click', (e) => {
+    e.preventDefault();
+    isLoginMode = !isLoginMode;
+    authError.style.display = 'none';
+    
+    if (isLoginMode) {
+        document.getElementById('auth-title').innerText = 'Login to MySaidi';
+        document.getElementById('login-form').style.display = 'block';
+        document.getElementById('register-form').style.display = 'none';
+        document.getElementById('toggle-msg').innerText = "Don't have an account?";
+        e.target.innerText = "Sign up";
+    } else {
+        document.getElementById('auth-title').innerText = 'Create Account';
+        document.getElementById('login-form').style.display = 'none';
+        document.getElementById('register-form').style.display = 'block';
+        document.getElementById('toggle-msg').innerText = "Already have an account?";
+        e.target.innerText = "Login";
+    }
+});
+
+// --Logout Button ---
+document.getElementById('logout-btn').addEventListener('click', () => {
+    // Replace 'token' with the actual key you use to store the JWT
+    localStorage.removeItem('token'); 
+    
+    // 
+    window.location.reload();
+});
+
+// --- API Calls ---
+async function handleAuth(url, email, password) {
+    authError.style.display = 'none';
+    try {
+        const response = await fetch(url, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ email, password })
+        });
+
+        const data = await response.json();
+
+        if (!response.ok) {
+            throw new Error(data.detail || 'Authentication failed');
+        }
+
+        if (url === '/login') {
+            localStorage.setItem('saidi_token', data.access_token);
+            showDashboard();
+        } else {
+            // If register is successful, automatically log them in
+            handleAuth('/login', email, password);
+        }
+    } catch (error) {
+        authError.textContent = error.message;
+        authError.style.display = 'block';
+    }
+}
+
+document.getElementById('login-form').addEventListener('submit', (e) => {
+    e.preventDefault();
+    handleAuth('/login', document.getElementById('login-email').value, document.getElementById('login-password').value);
+});
+
+document.getElementById('register-form').addEventListener('submit', (e) => {
+    e.preventDefault();
+    handleAuth('/register', document.getElementById('register-email').value, document.getElementById('register-password').value);
+});
+
+// Run auth check immediately
+checkAuth();
+
