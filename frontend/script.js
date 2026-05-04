@@ -1349,6 +1349,17 @@ document.getElementById('register-form').addEventListener('submit', (e) => {
     handleAuth('/register', document.getElementById('register-email').value, document.getElementById('register-password').value);
 });
 
+document.getElementById('peek-login').addEventListener('click', function() {
+    const passInput = document.getElementById('login-password');
+    if (passInput.type === 'password') {
+        passInput.type = 'text';
+        this.textContent = '🙈';
+    } else {
+        passInput.type = 'password';
+        this.textContent = '👁️';
+    }
+});
+
 // Run auth check immediately
 checkAuth();
 

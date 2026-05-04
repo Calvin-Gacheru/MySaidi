@@ -41,16 +41,24 @@
         
         <!-- Login Form -->
         <form id="login-form">
-            <input type="email" id="login-email" placeholder="Email" required>
-            <input type="password" id="login-password" placeholder="Password" required>
+            <input type="email" id="login-email" placeholder="Email" required autocapitalize="none" autocorrect="off">
+            <div style="position: relative;">
+              <input type="password" id="login-password" placeholder="Password" required style="width: 100%; padding-right: 40px;">
+              <button type="button" id="peek-login" style="position: absolute; right: 10px; top: 50%; transform: translateY(-50%); background: none; border: none; cursor: pointer; padding: 0;">👁️</button>
+            </div>
+            
             <button type="submit">Login</button>
         </form>
 
         <!-- Register Form (Hidden by default) -->
         <form id="register-form" style="display: none;">
-            <input type="email" id="register-email" placeholder="Email" required>
-            <input type="password" id="register-password" placeholder="Password" required>
+            <input type="email" id="register-email" placeholder="Email" required autocapitalize="none" autocorrect="off">
+            <div style="position: relative;">
+              <input type="password" id="register-password" placeholder="Password" required style="width: 100%; padding-right: 40px;">
+              <button type="button" id="peek-register" style="position: absolute; right: 10px; top: 50%; transform: translateY(-50%); background: none; border: none; cursor: pointer; padding: 0;">👁️</button>
+            </div>
             <button type="submit">Create Account</button>
+            <a href="#" id="forgot-password-link" style="display: block; text-align: center; margin-top: 10px; font-size: 0.9rem;">Forgot password?</a>
         </form>
 
         <p id="auth-error" style="color: red; display: none; margin-top: 10px;"></p>

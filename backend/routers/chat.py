@@ -4,7 +4,7 @@ import uuid
 from datetime import datetime, timezone
 from typing import Any
 
-from fastapi import APIRouter, Request
+from fastapi import APIRouter, Request, Depends
 from backend.schemas import ChatRequest
 from backend.auth import get_current_user_id
 
@@ -52,7 +52,7 @@ def _serialize_task(row: Any) -> dict[str, Any]:
     }
 
 
-async def _snapshot_tasks(request: Request, fallback: list[Any]) -> list[Any]:
+async def _snapshot_tasks(request: Request, fallback: list[Any], user_id: str) -> list[Any]:
     pool = getattr(request.app.state, "db_pool", None)
     if pool is None:
         return fallback
@@ -63,8 +63,10 @@ async def _snapshot_tasks(request: Request, fallback: list[Any]) -> list[Any]:
                 """
                 SELECT id, title, start_time, end_time, is_flexible, done, created_at
                 FROM Tasks
+                WHERE user_id = $1
                 ORDER BY COALESCE(start_time, created_at) DESC NULLS LAST, created_at DESC
-                """
+                """,
+                uuid.UUID(user_id)
             )
         return [_serialize_task(row) for row in rows]
     except Exception as exc:
@@ -72,7 +74,7 @@ async def _snapshot_tasks(request: Request, fallback: list[Any]) -> list[Any]:
         return fallback
 
 @router.post("/chat")
-async def chat_endpoint(req: ChatRequest, request: Request):
+async def chat_endpoint(req: ChatRequest, request: Request, user_id: str = Depends(get_current_user_id)):
     # Combine history and current message
     messages = req.history + [{"role": "user", "content": req.message}]
     active_tasks = _safe_active_tasks(req)
@@ -88,7 +90,7 @@ async def chat_endpoint(req: ChatRequest, request: Request):
                 "reply": "Saidi backend is online, but the AI agent failed to initialize.",
                 "clarification_requested": False,
                 "actions": [],
-                "updated_tasks": await _snapshot_tasks(request, active_tasks),
+                "updated_tasks": await _snapshot_tasks(request, active_tasks, user_id),
             }
     except Exception as exc:
         print(f"[Saidi] Agent import failed: {exc}")
@@ -96,7 +98,7 @@ async def chat_endpoint(req: ChatRequest, request: Request):
             "reply": "Saidi backend is online, but the AI agent failed to initialize.",
             "clarification_requested": False,
             "actions": [],
-            "updated_tasks": await _snapshot_tasks(request, active_tasks),
+            "updated_tasks": await _snapshot_tasks(request, active_tasks, user_id),
         }
     
     # Inject the database pool into the LangGraph configuration
@@ -119,7 +121,7 @@ async def chat_endpoint(req: ChatRequest, request: Request):
             "reply": "I took too long to respond. Please try again in a moment.",
             "clarification_requested": False,
             "actions": [],
-            "updated_tasks": await _snapshot_tasks(request, active_tasks),
+            "updated_tasks": await _snapshot_tasks(request, active_tasks, user_id),
         }
     except Exception as exc:
         print(f"[Saidi] Chat invocation failed: {exc}")
@@ -127,7 +129,7 @@ async def chat_endpoint(req: ChatRequest, request: Request):
             "reply": "I hit a backend issue while processing that. Please try again.",
             "clarification_requested": False,
             "actions": [],
-            "updated_tasks": await _snapshot_tasks(request, active_tasks),
+            "updated_tasks": await _snapshot_tasks(request, active_tasks, user_id),
         }
 
 
@@ -137,7 +139,7 @@ async def chat_endpoint(req: ChatRequest, request: Request):
         final_message = _extract_message_text(getattr(last_message, "content", ""))
 
         # Fallback - extract text from tool calls if content is empty
-        if not final_message and getattr(last_message, "too_calls", None):
+        if not final_message and getattr(last_message, "tool_calls", None):
             for tool in last_message.tool_calls:
                 if tool.get("name") == "request_clarification":
                     final_message = tool.get("args", {}).get("question_text", "")
@@ -155,5 +157,5 @@ async def chat_endpoint(req: ChatRequest, request: Request):
         "reply": final_message,
         "clarification_requested": clarification,
         "actions": [],
-        "updated_tasks": await _snapshot_tasks(request, active_tasks),
+        "updated_tasks": await _snapshot_tasks(request, active_tasks, user_id),
     }
