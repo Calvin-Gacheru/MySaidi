@@ -9,6 +9,7 @@ import uuid
 from fastapi import FastAPI, HTTPException
 from fastapi.staticfiles import StaticFiles
 from fastapi.middleware.cors import CORSMiddleware
+from fastapi import BackgroundTasks
 from pydantic import BaseModel, Field
 import asyncpg
 from backend.auth import get_password_hash, verify_password, create_access_token, get_current_user_id
@@ -42,9 +43,13 @@ async def _ensure_schema(pool) -> None:
                 password_hash TEXT NOT NULL,
                 created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
                 first_name TEXT,
-                last_name TEXT
+                last_name TEXT,
+                token_balance INTEGER NOT NULL DEFAULT 50000
             );
             '''
+        )
+        await conn.execute(
+            "ALTER TABLE users ADD COLUMN IF NOT EXISTS token_balance INTEGER NOT NULL DEFAULT 50000;"
         )
         await conn.execute(
             '''
@@ -173,6 +178,3 @@ else:
     @app.get("/")
     def missing_frontend():
         return {"error": f"Frontend directory not found at {FRONTEND_DIR}."} 
-
-
-

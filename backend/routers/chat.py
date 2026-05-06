@@ -1,10 +1,11 @@
 # type: ignore
 import asyncio
+from tabnanny import check
 import uuid
 from datetime import datetime, timezone
 from typing import Any
 
-from fastapi import APIRouter, Request, Depends
+from fastapi import APIRouter, Request, Depends, HTTPException, BackgroundTasks
 from backend.schemas import ChatRequest
 from backend.auth import get_current_user_id
 
@@ -74,16 +75,21 @@ async def _snapshot_tasks(request: Request, fallback: list[Any], user_id: str) -
         return fallback
 
 @router.post("/chat")
-async def chat_endpoint(req: ChatRequest, request: Request, user_id: str = Depends(get_current_user_id)):
+async def chat_endpoint(
+    req: ChatRequest,
+    request: Request,
+    background_tasks: BackgroundTasks,
+    user_id: str = Depends(get_current_user_id),
+):
     # Combine history and current message
     messages = req.history + [{"role": "user", "content": req.message}]
     active_tasks = _safe_active_tasks(req)
 
     try:
-        from backend.agents import graph
+        from backend.agents import graph, TokenBalanceExhausted
     except ModuleNotFoundError:
         try:
-            from agents import graph
+            from agents import graph, TokenBalanceExhausted
         except Exception as exc:
             print(f"[Saidi] Agent import failed: {exc}")
             return {
@@ -105,7 +111,8 @@ async def chat_endpoint(req: ChatRequest, request: Request, user_id: str = Depen
     config = {
         "configurable": {
             "db_pool": getattr(request.app.state, "db_pool", None),
-            "user_id": user_id
+            "user_id": user_id,
+            "background_tasks": background_tasks,
             }
         }
     
@@ -115,6 +122,11 @@ async def chat_endpoint(req: ChatRequest, request: Request, user_id: str = Depen
             timeout=25,
         )
         print(result)
+    except TokenBalanceExhausted:
+        raise HTTPException(
+            status_code=429,
+            detail="You have run out of tokens. Please upgrade to continue using Saidi.",
+        )
     except asyncio.TimeoutError:
         print("[Saidi] Chat invocation timed out.")
         return {

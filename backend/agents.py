@@ -30,6 +30,23 @@ class AgentState(TypedDict):
     clarification_requested: bool
     extracted_intent: Optional[SemanticIntent] # this state holds the parse intent
 
+
+class TokenBalanceExhausted(Exception):
+    """Raised when a user's token_balance is depleted before an LLM call."""
+    pass
+
+
+async def _deduct_tokens(pool, user_id, amount: int) -> None:
+    """Background task: subtract `amount` from the user's token_balance."""
+    try:
+        async with pool.acquire() as conn:
+            await conn.execute(
+                "UPDATE users SET token_balance = token_balance - $1 WHERE id = $2",
+                amount, user_id,
+            )
+    except Exception as exc:
+        print(f"[Saidi] Background token deduction failed: {exc}")
+
 # --- Database Tools ---
 def _get_context(config: RunnableConfig | None):
     if not config:
@@ -252,7 +269,20 @@ async def call_model(state: AgentState, config: RunnableConfig):
             ),
             "clarification_requested": False,
         }
-    
+
+    pool, user_id = _get_context(config)
+    configurable = config.get("configurable", {}) if config else {}
+    background_tasks = configurable.get("background_tasks")
+
+    # Block the LLM call when the user has no remaining tokens.
+    if pool is not None and user_id is not None:
+        async with pool.acquire() as conn:
+            balance = await conn.fetchval(
+                "SELECT token_balance FROM users WHERE id = $1", user_id
+            )
+        if balance is not None and balance <= 0:
+            raise TokenBalanceExhausted("Token balance exhausted")
+
     # Extract the parsed intent from state and feed it into the prompt so the LLM acts on it
     intent_data = state.get("extracted_intent")
     intent_context_str = ""
@@ -269,14 +299,37 @@ async def call_model(state: AgentState, config: RunnableConfig):
     ))
 
     response = await llm.ainvoke([sys_msg] + messages, config)
-    
+
+    # Deduct tokens consumed by this call from the user's balance.
+    # Runs in a FastAPI background task so the response is not blocked on the write.
+    if pool is not None and user_id is not None:
+        usage = getattr(response, "usage_metadata", None)
+        total_tokens = 0
+        if isinstance(usage, dict):
+            try:
+                total_tokens = int(usage.get("total_tokens") or 0)
+            except (TypeError, ValueError):
+                total_tokens = 0
+        if total_tokens > 0:
+            if background_tasks is not None:
+                background_tasks.add_task(_deduct_tokens, pool, user_id, total_tokens)
+            else:
+                try:
+                    async with pool.acquire() as conn:
+                        await conn.execute(
+                            "UPDATE users SET token_balance = token_balance - $1 WHERE id = $2",
+                            total_tokens, user_id,
+                        )
+                except Exception as exc:
+                    print(f"[Saidi] Failed to deduct token_balance: {exc}")
+
     # Check if the model called request_clarification to flag state
     clarification = False
     if response.tool_calls:
         for call in response.tool_calls:
             if call["name"] == "request_clarification":
                 clarification = True
-                
+
     return {"messages": response, "clarification_requested": clarification}
 
 # --- Edge Logic ---

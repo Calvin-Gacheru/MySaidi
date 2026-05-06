@@ -20,4 +20,6 @@ uv.lock
 .vscode/
 *.swp
 
+.claude
+
 
