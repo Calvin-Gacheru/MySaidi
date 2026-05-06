@@ -1273,8 +1273,12 @@ function showDashboard() {
 
 function logout() {
     localStorage.removeItem('saidi_token');
-    appDashboard.style.display = 'none';
-    authLanding.style.display = 'flex';
+    localStorage.removeItem(STORAGE_KEY); // Clear tasks cache on logout
+    tasks = [];
+    chatHistory = [];
+    window.location.reload();
+    // appDashboard.style.display = 'none';
+    // authLanding.style.display = 'flex';
 }
 
 document.getElementById('logout-btn')?.addEventListener('click', logout);
@@ -1302,22 +1306,29 @@ document.getElementById('toggle-auth').addEventListener('click', (e) => {
 });
 
 // --Logout Button ---
-document.getElementById('logout-btn').addEventListener('click', () => {
-    // Replace 'token' with the actual key you use to store the JWT
-    localStorage.removeItem('token'); 
+// document.getElementById('logout-btn').addEventListener('click', () => {
+//     // Replace 'token' with the actual key you use to store the JWT
+//     localStorage.removeItem('token'); 
     
-    // 
-    window.location.reload();
-});
+//     // 
+//     window.location.reload();
+// });
 
 // --- API Calls ---
-async function handleAuth(url, email, password) {
+async function handleAuth(url, payload, submitBtn) {
     authError.style.display = 'none';
+
+    // Set loading state
+    const originalText = submitBtn.textContent;
+    submitBtn.textContent = 'Submitting...';
+    submitBtn.disabled = true;
+    submitBtn.style.opacity = '0.7';
+
     try {
         const response = await fetch(url, {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ email, password })
+            body: JSON.stringify(payload)
         });
 
         const data = await response.json();
@@ -1331,22 +1342,60 @@ async function handleAuth(url, email, password) {
             showDashboard();
         } else {
             // If register is successful, automatically log them in
-            handleAuth('/login', email, password);
+            await handleAuth('/login', { email: payload.email, password: payload.password }, submitBtn);
         }
     } catch (error) {
         authError.textContent = error.message;
         authError.style.display = 'block';
     }
+    finally {
+        // Reset loading state
+        submitBtn.textContent = originalText;
+        submitBtn.disabled = false;
+        submitBtn.style.opacity = '1';
+    }
 }
 
 document.getElementById('login-form').addEventListener('submit', (e) => {
     e.preventDefault();
-    handleAuth('/login', document.getElementById('login-email').value, document.getElementById('login-password').value);
+    const submitBtn = e.target.querySelector('button[type="submit"]');
+    handleAuth('/login', {
+        email: document.getElementById('login-email').value,
+        password: document.getElementById('login-password').value
+    }, submitBtn);
 });
 
 document.getElementById('register-form').addEventListener('submit', (e) => {
     e.preventDefault();
-    handleAuth('/register', document.getElementById('register-email').value, document.getElementById('register-password').value);
+    const submitBtn = e.target.querySelector('button[type="submit"]');
+    
+    const firstNameInput = document.getElementById('register-first-name');
+    const lastNameInput = document.getElementById('register-last-name');
+    const emailInput = document.getElementById('register-email');
+    const passwordInput = document.getElementById('register-password');
+    const confirmInput = document.getElementById('register-confirm-password');
+
+    if (!firstNameInput || !lastNameInput || !emailInput || !passwordInput || !confirmInput) {
+        authError.textContent = "Form configuration error. An input field is missing from the HTML.";
+        authError.style.display = 'block';
+        return;
+    }
+
+    const password = passwordInput.value;
+    const confirmPassword = confirmInput.value;
+
+    if (password !== confirmPassword) {
+        authError.textContent = "Passwords do not match.";
+        authError.style.display = 'block';
+        return;
+    }
+
+    handleAuth('/register', {
+        email: emailInput.value,
+        password: password,
+        first_name: firstNameInput.value,
+        last_name: lastNameInput.value
+    }, submitBtn);
 });
 
 document.getElementById('peek-login').addEventListener('click', function() {
@@ -1360,6 +1409,27 @@ document.getElementById('peek-login').addEventListener('click', function() {
     }
 });
 
+document.getElementById('peek-register').addEventListener('click', function() {
+    const passInput = document.getElementById('register-password');
+    if (passInput.type === 'password') {
+        passInput.type = 'text';
+        this.textContent = '🙈';
+    } else {
+        passInput.type = 'password';
+        this.textContent = '👁️';
+    }
+});
+
+document.getElementById('peek-register-confirm').addEventListener('click', function() {
+    const passInput = document.getElementById('register-confirm-password');
+    if (passInput.type === 'password') {
+        passInput.type = 'text';
+        this.textContent = '🙈';
+    } else {
+        passInput.type = 'password';
+        this.textContent = '👁️';
+    }
+});
 // Run auth check immediately
 checkAuth();
 

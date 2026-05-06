@@ -36,17 +36,19 @@ async def _ensure_schema(pool) -> None:
     async with pool.acquire() as conn:
         await conn.execute(
             '''
-            CREATE TABLE IF NOT EXISTS Users (
+            CREATE TABLE IF NOT EXISTS users (
                 id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
                 email TEXT NOT NULL UNIQUE,
                 password_hash TEXT NOT NULL,
-                created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+                created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+                first_name TEXT,
+                last_name TEXT
             );
             '''
         )
         await conn.execute(
             '''
-            CREATE TABLE IF NOT EXISTS Tasks (
+            CREATE TABLE IF NOT EXISTS tasks (
                 id UUID PRIMARY KEY,
                 title TEXT NOT NULL,
                 start_time TIMESTAMPTZ,
@@ -101,7 +103,10 @@ app = FastAPI(title="Saidi API", lifespan=lifespan)
 # Add CORS middleware to allow frontend to communicate with backend
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["*"],  # Allow all origins in development
+    allow_origins=[
+        "https://mysaidi-production.up.railway.app",
+        "http://127.0.0.1:8000" # Dev container
+    ],  # Allow all origins in development
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
@@ -113,9 +118,12 @@ app.include_router(tasks.router)
 class UserCreate(BaseModel):
     email: str
     password: str = Field(..., max_length=72)
+    first_name: str | None = None
+    last_name: str | None = None
 
 @app.post("/register")
 async def register(user: UserCreate):
+    print(f"[DEBUG] Register endpoint hit for email: {user.email}")
     db_pool = getattr(app.state, "db_pool", None)
     if db_pool is None:
         raise HTTPException(status_code=500, detail="Database is not available. Registration is currently disabled.")
@@ -124,8 +132,8 @@ async def register(user: UserCreate):
     try:
         async with db_pool.acquire() as conn:
             new_id = await conn.fetchval(
-                "INSERT INTO Users (email, password_hash) VALUES ($1, $2) RETURNING id",
-                user.email, hashed_pw
+                "INSERT INTO users (email, password_hash, first_name, last_name) VALUES ($1, $2, $3, $4) RETURNING id",
+                user.email, hashed_pw, user.first_name, user.last_name
             )
         return {"message": "User created", "user_id": str(new_id)}
     except asyncpg.exceptions.UniqueViolationError:
@@ -135,6 +143,7 @@ async def register(user: UserCreate):
     
 @app.post("/login")
 async def login(user: UserCreate):
+    print(f"[DEBUG] Login endpoint hit for email: {user.email}")
     db_pool = getattr(app.state, "db_pool", None)
     if db_pool is None:
         raise HTTPException(status_code=500, detail="Database is not available. Login is currently disabled.")
@@ -150,8 +159,11 @@ async def login(user: UserCreate):
     
     if not db_user or not verify_password(user.password, db_user["password_hash"]):
         raise HTTPException(status_code=401, detail="Incorrect email or password")
-        
-    token = create_access_token(data={"sub": str(db_user["id"])})
+
+    try:        
+        token = create_access_token(data={"sub": str(db_user["id"])})
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Token creation failed: {str(e)}")
     return {"access_token": token, "token_type": "bearer"}
 
 # Static file serving for frontend
